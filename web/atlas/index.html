@@ -110,7 +110,7 @@ let meta, targets, known, thumbs = {}, N = 0;
 const D = {};                // typed columns
 let ZT, H, EV, ICE, AEO, VOL, XM, YM, KNOWNKM, KNOWNIDX, PKPA, COSL;
 let cur = null, W = [50, 30, 20], SC = null, results = [], selIdx = -1, markers = [], selRect = null;
-let map, heat, hctx, miniMap = null;
+let map, heat, hctx, miniMap = null, plannerLive = false;
 
 // ---------------------------------------------------------------- data loading
 async function load() {
@@ -395,7 +395,7 @@ function setTarget(id) {
   cur = targets.find(t => t.id === id); const f = cur.terrain;
   $('tcard').innerHTML = `<img src="data:image/png;base64,${cur.thumb}" alt=""><div><div class="nm">${cur.name}</div><div class="nt">${cur.note}</div>
     <div class="kv"><span>Median slope</span><span>${fmt(f.slope_med, 1)}°</span><span>Relief (48 km)</span><span>${fmt(f.relief)} m</span><span>Roughness</span><span>${fmt(f.rough)} m</span><span>Location</span><span>${ll(cur.lat, cur.lon)}</span></div></div>`;
-  $('lgTitle').textContent = `Similarity to ${cur.name}`; $('bMap').href = `../#goto=${cur.body},${cur.lat},${cur.lon}`;
+  $('lgTitle').textContent = `Similarity to ${cur.name}`; if (plannerLive) $('bMap').href = `../#goto=${cur.body},${cur.lat},${cur.lon}`;
   selIdx = -1; if (selRect) { selRect.remove(); selRect = null; } $('detail').innerHTML = '<p class="small">Select a result or click the map.</p>';
   update();
 }
@@ -441,7 +441,8 @@ function toast(t) { const m = $('msg'); m.textContent = t; m.style.display = 'bl
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([head + '\n' + rows.join('\n')], { type: 'text/csv' })); a.download = `analog-atlas-${cur.id}.csv`; a.click();
   };
   $('bHow').onclick = () => $('dlg').showModal(); $('bClose').onclick = () => $('dlg').close();
-  fetch('../api/meta').then(r => { if (r.ok) $('bMap').hidden = false; }).catch(() => {});
+  const showcase = () => { plannerLive = false; $('bMap').href = '../routes/'; $('bMap').querySelector('button').textContent = '🚙 Map and simulator (Mars and Moon)'; $('bMap').hidden = false; };
+  fetch('../api/meta').then(r => { if (r.ok) { plannerLive = true; $('bMap').hidden = false; } else showcase(); }).catch(showcase);
   $('b2d').onclick = () => setMode(false); $('b3d').onclick = () => setMode(true);
   setTarget(sel.value);
   if (saved && saved.c) { const c = String(saved.c).split(',').map(Number); if (c.length === 3 && c.every(Number.isFinite) && saved.v !== '3d') map.setView([c[0], c[1]], c[2], { animate: false }); }
