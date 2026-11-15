@@ -1,0 +1,44 @@
+<!doctype html>
+<!-- Developed with assistance from Claude Code (Anthropic), an AI coding assistant. See SI_DISCLOSURE.md. -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Routes Beyond Earth · Moon and Mars map and simulator</title>
+<style>
+:root{--bg:#0a0f17;--panel:#101826;--line:#ffffff22;--ink:#eef2f8;--dim:#93a0b8;--teal:#2dd4bf;--mars:#ff8a3d}*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.55 "Helvetica Neue",Arial,sans-serif;padding:0 0 60px}
+header{padding:18px 24px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center}
+header a{color:var(--teal);text-decoration:none;border:1px solid #2dd4bf66;border-radius:10px;padding:6px 14px;font-size:14px;margin-left:8px}
+main{max-width:1100px;margin:0 auto;padding:0 20px}h1{font-weight:300;font-size:40px;letter-spacing:.04em;margin:34px 0 6px}h1 b{color:var(--mars);font-weight:600}
+h2{font-weight:400;font-size:22px;margin:38px 0 10px;color:var(--teal)}p,li{color:#cfd6e4}.lead{font-size:18px;color:var(--dim);max-width:46em}
+.note{border:1px solid #ffd24a66;background:#ffd24a12;border-radius:12px;padding:12px 16px;margin:22px 0;color:#ffe9a6}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}figure{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--panel)}
+figure img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover}figure.tall img{aspect-ratio:auto;max-height:520px;object-fit:contain;background:#000}figcaption{padding:10px 14px;font-size:14px;color:var(--dim)}
+pre{background:#0c1320;border:1px solid var(--line);border-radius:12px;padding:14px;overflow:auto;font-size:13.5px;color:#d7e3f5}ul{padding-left:20px}code{color:#bff7ee}
+</style></head><body>
+<header><div style="letter-spacing:.3em;text-transform:uppercase;font-size:12px;color:var(--dim)">Team Infinity · NASA Space Apps 2026</div><div><a href="../atlas/">Analog Atlas (live)</a><a href="https://github.com/Merdanov11/analog-atlas">Source code</a></div></header>
+<main>
+<h1>Routes Beyond Earth <b>· map and simulator</b></h1>
+<p class="lead">A layered Moon and Mars navigator with route planning for an astronaut on foot, a crewed rover, a robotic rover and a drone, a physics-based driving and walking simulator on the same NASA terrain, a drone, a shared multiplayer world and live NASA/JPL rover positions.</p>
+<div class="note"><b>Why there is no live button here.</b> This page is hosted on GitHub Pages, which serves static files only. The map and the simulator need a small Python server and about 10 GB of NASA elevation data (MGS MOLA for Mars, LRO LOLA for the Moon), so they run on the team's computer. Below are screenshots of the running application and the steps to start it. The Earth-analog tool, <a style="color:#ffe9a6" href="../atlas/">Analog Atlas</a>, runs fully in the browser.</div>
+<h2>Plan and compare routes</h2>
+<div class="grid"><figure><img src="img/map_plan.jpg" alt=""><figcaption>Gale → Jezero, three route types for a crewed rover, with trip plan and a "Drive this route" button.</figcaption></figure>
+<figure><img src="img/map_layers.jpg" alt=""><figcaption>NASA science layers (THEMIS thermal infrared, TES, MOLA) blended over Viking imagery.</figcaption></figure>
+<figure><img src="img/map_live.jpg" alt=""><figcaption>Real Perseverance position and trace from NASA/JPL MMGIS (live after each drive).</figcaption></figure></div>
+<h2>Drive and walk on real terrain</h2>
+<div class="grid"><figure><img src="img/sim_mars_rover.jpg" alt=""><figcaption>Mars rover: wheel and soil physics, battery, heat, weather.</figcaption></figure>
+<figure><img src="img/sim_moon_rover_clean.jpg" alt=""><figcaption>Moon, evening: dust thrown by the wheels.</figcaption></figure>
+<figure><img src="img/sim_astronaut_mars_clean.jpg" alt=""><figcaption>Step out and walk: third-person astronaut with a stride-matched walk cycle.</figcaption></figure>
+<figure><img src="img/sim_drone_mars_clean.jpg" alt=""><figcaption>Mars rotorcraft drone (lift depends on the thin atmosphere).</figcaption></figure>
+<figure><img src="img/sim_hopper_clean.jpg" alt=""><figcaption>Moon rocket hopper (a concept, labelled as such).</figcaption></figure>
+<figure><img src="img/sim_fleet_clean.jpg" alt=""><figcaption>Rover, astronaut and the real Curiosity in one world.</figcaption></figure>
+<figure><img src="img/sim_multiplayer.jpg" alt=""><figcaption>Shared world: players, chat, map pings, live NASA rovers.</figcaption></figure>
+<figure class="tall"><img src="img/mobile_hud_mars.jpg" alt=""><figcaption>Phone controls: joystick and buttons.</figcaption></figure></div>
+<h2>Run it yourself</h2>
+<pre>git clone https://github.com/Merdanov11/analog-atlas && cd analog-atlas
+python3 -m venv .venv &amp;&amp; .venv/bin/pip install -r requirements.txt
+mkdir -p data/mars data/moon
+curl -L -o data/mars/Mars_MGS_MOLA_DEM_mosaic_global_463m.tif https://planetarymaps.usgs.gov/mosaic/Mars_MGS_MOLA_DEM_mosaic_global_463m.tif
+curl -L -o data/moon/Lunar_LRO_LOLA_Global_LDEM_118m_Mar2014.tif https://planetarymaps.usgs.gov/mosaic/Lunar_LRO_LOLA_Global_LDEM_118m_Mar2014.tif
+.venv/bin/python -I server/prep.py mars &amp;&amp; .venv/bin/python -I server/prep.py moon
+.venv/bin/uvicorn app:app --app-dir server --host 0.0.0.0 --port 8000
+# map and simulator: http://127.0.0.1:8000/   ·   Analog Atlas inside it: http://127.0.0.1:8000/atlas/</pre>
+<p style="margin-top:14px">Details, limits and the list of NASA data are in <a style="color:var(--teal)" href="https://github.com/Merdanov11/analog-atlas/blob/main/README_ROUTES.md">README_ROUTES.md</a>. Environment figures are simplified educational models; terrain finer than the NASA maps is a labelled statistical model; the Moon hopper is a concept.</p>
+</main></body></html>
