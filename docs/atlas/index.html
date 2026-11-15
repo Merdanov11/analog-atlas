@@ -1,0 +1,464 @@
+<!doctype html>
+<!-- Developed with assistance from Claude Code (Anthropic), an AI coding assistant. See SI_DISCLOSURE.md. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Analog Atlas · Earth analogs for Moon and Mars sites</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root { --bg: #0a0f17; --panel: #101826; --line: #ffffff22; --ink: #eef2f8; --dim: #93a0b8; --teal: #2dd4bf; --mars: #ff8a3d; --moon: #a9c4e6; --ok: #38d39f; --mid: #ffd24a; --bad: #ff6b81; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.45 "Helvetica Neue", "Segoe UI", system-ui, Roboto, Arial, sans-serif; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 16px; border-bottom: 1px solid var(--line); background: #0b111b; }
+  header h1 { font-size: 17px; font-weight: 500; letter-spacing: .04em; } header h1 b { color: var(--teal); font-weight: 600; }
+  header p { color: var(--dim); font-size: 12.5px; } header .r { display: flex; gap: 8px; align-items: center; }
+  button, select { font: inherit; color: var(--ink); background: #172236; border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+  button:hover { border-color: #ffffff55; } button.on { border-color: var(--teal); color: var(--teal); }
+  #app { display: grid; grid-template-columns: 360px minmax(0, 1fr) 390px; height: calc(100% - 49px); }
+  .col { overflow-y: auto; padding: 12px 14px 20px; background: var(--panel); }
+  #left { border-right: 1px solid var(--line); } #right { border-left: 1px solid var(--line); }
+  #mapwrap { position: relative; min-height: 360px; } #map { position: absolute; inset: 0; background: #05080d; }
+  #heat { position: absolute; inset: 0; z-index: 450; pointer-events: none; }
+  h3 { font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); font-weight: 500; margin: 16px 0 8px; }
+  h3:first-child { margin-top: 0; }
+  select { width: 100%; }
+  .card { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: #0c1320; }
+  .tcard { display: grid; grid-template-columns: 112px 1fr; gap: 12px; align-items: start; margin-top: 10px; }
+  .tcard img { width: 112px; height: 112px; image-rendering: pixelated; border-radius: 8px; border: 1px solid var(--line); background: #000; }
+  .tcard .nm { font-weight: 500; font-size: 15px; } .tcard .nt { color: var(--dim); font-size: 12.5px; margin-top: 2px; }
+  .kv { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; font-size: 12.5px; margin-top: 6px; } .kv span:nth-child(odd) { color: var(--dim); }
+  .sl { display: grid; grid-template-columns: 96px 1fr 34px; gap: 8px; align-items: center; margin: 4px 0; font-size: 12.5px; }
+  input[type=range] { width: 100%; accent-color: var(--teal); } .sl output { color: var(--dim); text-align: right; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; } .row button { padding: 4px 10px; font-size: 12.5px; }
+  label.chk { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; margin: 8px 0; cursor: pointer; } label.chk input { margin-top: 3px; accent-color: var(--teal); }
+  .res { display: grid; gap: 8px; }
+  .item { border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; background: #0c1320; cursor: pointer; display: grid; grid-template-columns: 30px 1fr auto; gap: 8px; align-items: center; }
+  .item:hover, .item.sel { border-color: var(--teal); background: #0f1b2b; }
+  .item .rk { width: 26px; height: 26px; border-radius: 50%; background: #1b2a42; display: grid; place-items: center; font-weight: 600; font-size: 12px; }
+  .item .ti { font-size: 13.5px; font-weight: 500; } .item .su { color: var(--dim); font-size: 12px; }
+  .item .sc { font-size: 20px; font-weight: 300; text-align: right; line-height: 1; } .item .sc small { display: block; font-size: 10.5px; color: var(--dim); }
+  .bars { display: grid; gap: 3px; margin-top: 5px; } .bar { height: 5px; border-radius: 3px; background: #ffffff18; overflow: hidden; } .bar i { display: block; height: 100%; }
+  .tag { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); } .tag.new { color: var(--teal); border-color: #2dd4bf66; } .tag.known { color: var(--mid); border-color: #ffd24a55; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; } th, td { padding: 4px 6px; text-align: left; border-bottom: 1px solid #ffffff12; } th { color: var(--dim); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+  td.v { text-align: center; font-weight: 700; } .ok { color: var(--ok); } .mid { color: var(--mid); } .bad { color: var(--bad); }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; } .pair figure img { width: 100%; image-rendering: pixelated; border-radius: 8px; border: 1px solid var(--line); background: #000; aspect-ratio: 1; } .pair figcaption { font-size: 12px; color: var(--dim); text-align: center; margin-top: 3px; }
+  .mini { aspect-ratio: 1; border-radius: 8px; border: 1px solid var(--line); background: #05080d; }
+  .nothumb { aspect-ratio: 1; border: 1px dashed var(--line); border-radius: 8px; display: grid; place-items: center; color: var(--dim); font-size: 11.5px; text-align: center; padding: 6px; }
+  ul.pts { padding-left: 18px; font-size: 13px; } ul.pts li { margin: 3px 0; } p.small, .small { font-size: 12px; color: var(--dim); }
+  canvas#hist { width: 100%; height: 110px; border: 1px solid var(--line); border-radius: 8px; background: #0a111c; }
+  #globe { position: absolute; inset: 0; background: #000; } #globe .cesium-widget-credits { display: none !important; }
+  #viewSw { position: absolute; left: 56px; top: 10px; z-index: 700; display: flex; gap: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #0b111bdd; }
+  #viewSw button { border: 0; border-radius: 0; background: transparent; padding: 7px 14px; } #viewSw button.on { background: #12303a; color: var(--teal); }
+  .legend { position: absolute; left: 10px; bottom: 22px; z-index: 600; background: #0b111bdd; border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; font-size: 11.5px; } .legend .g { height: 8px; width: 160px; border-radius: 4px; margin: 4px 0; background: linear-gradient(90deg, #2b1a5a, #1f6fb5, #1fb59a, #8bd646, #fde725); }
+  .legend .l { display: flex; justify-content: space-between; color: var(--dim); }
+  #msg { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 700; background: #0b111bee; border: 1px solid var(--line); border-radius: 10px; padding: 6px 14px; font-size: 13px; display: none; }
+  dialog { background: #0e1626; color: var(--ink); border: 1px solid #ffffff44; border-radius: 14px; max-width: 760px; width: 92vw; padding: 18px 22px; } dialog::backdrop { background: #000a; } dialog h2 { font-size: 18px; font-weight: 500; margin-bottom: 8px; } dialog h4 { margin: 12px 0 4px; color: var(--teal); font-weight: 500; font-size: 13px; } dialog p, dialog li { font-size: 13px; color: #cfd6e4; } dialog ul { padding-left: 18px; }
+  @media (max-width: 1180px) { #app { grid-template-columns: 340px minmax(0, 1fr); grid-template-rows: 1fr auto; } #right { grid-column: 1 / 3; border-left: 0; border-top: 1px solid var(--line); max-height: 48vh; } #left { grid-row: 1 / 2; } }
+  @media (max-width: 760px) { #app { display: flex; flex-direction: column; height: auto; } #mapwrap { order: -1; } header { flex-wrap: wrap; } header p { display: none; } #mapwrap { height: 56vh; } .col { overflow: visible; } #left, #right { border: 0; } }
+</style>
+</head>
+<body>
+<header>
+  <div><h1><b>Analog Atlas</b> · where on Earth can we rehearse the Moon and Mars?</h1><p>Systematic scan of 100,000+ land windows (48 km) against candidate Moon-base and Mars sites · NASA open data</p></div>
+  <div class="r"><a id="bMap" href="../" hidden style="text-decoration:none"><button type="button">🚙 Route planner and simulator</button></a><button id="bHow">How it works</button></div>
+</header>
+<div id="app">
+  <aside class="col" id="left">
+    <h3>1 · Pick a Moon or Mars site</h3>
+    <select id="target"></select>
+    <div class="card tcard" id="tcard"></div>
+    <h3>2 · What counts as "analogous"?</h3>
+    <div class="sl"><span>Terrain</span><input type="range" id="wT" min="0" max="100" value="50"><output id="oT">50</output></div>
+    <div class="sl"><span>Environment</span><input type="range" id="wE" min="0" max="100" value="30"><output id="oE">30</output></div>
+    <div class="sl"><span>Ice, wind, volcanism</span><input type="range" id="wR" min="0" max="100" value="20"><output id="oR">20</output></div>
+    <div class="row"><button data-p="50,30,20" class="on">Balanced</button><button data-p="100,0,0">Terrain only</button><button data-p="10,50,40">Environment and resources</button></div>
+    <label class="chk"><input type="checkbox" id="onlyNew"><span>Only less-studied places (outside the area of every well-known analog site or region in our list: 120 km radius, larger for big deserts)</span></label>
+    <h3>3 · Best matches (distinct places, 100+ km apart)</h3>
+    <div class="res" id="results"></div>
+    <div class="row"><button id="bCsv">Download these results (CSV)</button></div>
+    <p class="small" style="margin-top:6px">Click anywhere on the map to see how that place scores.</p>
+  </aside>
+  <main id="mapwrap"><div id="map"></div><canvas id="heat"></canvas><div id="globe" hidden></div><div id="viewSw"><button id="b2d" class="on">2D map</button><button id="b3d">3D globe</button></div><div id="msg"></div>
+    <div class="legend"><div id="lgTitle">Similarity to the selected site</div><div class="g"></div><div class="l"><span>low</span><span>high</span></div></div></main>
+  <aside class="col" id="right"><div id="detail"><p class="small">Select a result or click the map to compare an Earth window with the chosen Moon or Mars site: what matches, what does not, and how it could help exploration.</p></div></aside>
+</div>
+
+<dialog id="dlg"><h2>How the Analog Atlas works</h2>
+<h4>The question</h4><p>No place on Earth is a perfect copy of the Moon or Mars, but different places match different properties. The atlas scores every land window on Earth against a chosen Moon or Mars site along three separate dimensions and lets you decide how much each one counts.</p>
+<h4>The data</h4><ul>
+<li><b>Moon and Mars targets:</b> NASA LRO LOLA (118 m) and MGS MOLA (463 m) elevation models, 48 km windows centred on IAU gazetteer features.</li>
+<li><b>Earth terrain:</b> elevation tiles built from NASA SRTM and other open sources (AWS Terrain Tiles), 48 km windows every 36 km over all land between 80 N and 80 S (about 100,000 windows), resampled to the same 480 m cell as the targets.</li>
+<li><b>Earth climate:</b> NASA POWER (MERRA-2) climatology: annual mean temperature, the hottest and coldest day of the year, precipitation, wind, UV index.</li>
+<li><b>Volcanic setting:</b> Smithsonian Global Volcanism Program, distance to the nearest basaltic Holocene volcano.</li></ul>
+<h4>The three scores (0 to 1)</h4><ul>
+<li><b>Terrain:</b> median and 90th-percentile slope, relief, roughness and the whole slope distribution, compared at the same 480 m scale.</li>
+<li><b>Environment:</b> mean temperature, annual temperature range, precipitation, air pressure (from elevation), wind and UV index. Moon and Mars values are clipped to the extremes that exist on Earth, so this dimension ranks places by how Moon- or Mars-like their climate tendency is. It never claims an exact match.</li>
+<li><b>Ice, wind, volcanism:</b> ground-ice potential (cold ground), wind-driven surface processes (windy and dry) and lava-flow or lava-tube setting, matched against the target's tags.</li></ul>
+<h4>Honest limits</h4><ul>
+<li>Earth has 9.8 m/s² gravity, a thick atmosphere and a protective magnetic field: it cannot reproduce lunar vacuum and gravity, Martian pressure, or radiation. These rows are always marked as different.</li>
+<li>Scores are screening tools, not proof. Fine-scale geology, mineralogy and surface materials are not in the global score; use the shortlisted places as starting points for closer study.</li>
+<li>Climate is a 0.5-degree reanalysis and mountain micro-climates are smoothed. Polar elevation tiles are coarser than SRTM areas. The list of well-known analog sites is ours and not exhaustive.</li></ul>
+<div class="row"><button id="bClose">Close</button></div></dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+let meta, targets, known, thumbs = {}, N = 0;
+const D = {};                // typed columns
+let ZT, H, EV, ICE, AEO, VOL, XM, YM, KNOWNKM, KNOWNIDX, PKPA, COSL;
+let cur = null, W = [50, 30, 20], SC = null, results = [], selIdx = -1, markers = [], selRect = null;
+let map, heat, hctx, miniMap = null;
+
+// ---------------------------------------------------------------- data loading
+async function load() {
+  const j = u => fetch(u).then(r => { if (!r.ok) throw new Error(u); return r.json(); });
+  [meta, targets, known] = await Promise.all([j('data/meta.json'), j('data/targets.json'), j('data/known.json')]);
+  j('data/thumbs.json').then(t => { thumbs = t; if (selIdx >= 0) showDetail(selIdx); }).catch(() => {});
+  const buf = await fetch('data/windows.bin').then(r => r.arrayBuffer());
+  const T = { '<f4': Float32Array, '<u2': Uint16Array, '<i2': Int16Array, 'u1': Uint8Array, '|u1': Uint8Array };
+  for (const c of meta.columns) D[c.name] = new T[c.dtype](buf, c.offset, c.count);
+  N = meta.n; prepare();
+}
+const ln1p = Math.log1p;
+function prepare() {
+  ZT = new Float32Array(N * 4); H = new Float32Array(N * 8); EV = new Float32Array(N * 6);
+  ICE = new Float32Array(N); AEO = new Float32Array(N); VOL = new Float32Array(N); XM = new Float32Array(N); YM = new Float32Array(N); PKPA = new Float32Array(N);
+  KNOWNKM = new Float32Array(N); KNOWNIDX = new Int16Array(N); COSL = new Float32Array(N);
+  const mu = meta.terrain_mean, sd = meta.terrain_std;
+  const kla = known.map(k => k.lat * Math.PI / 180), klo = known.map(k => k.lon * Math.PI / 180);
+  for (let i = 0; i < N; i++) {
+    const smed = D.smed[i] / 100, sp90 = D.sp90[i] / 100, rel = D.relief[i], rou = D.rough[i];
+    ZT[4 * i] = (ln1p(smed) - mu[0]) / sd[0]; ZT[4 * i + 1] = (ln1p(sp90) - mu[1]) / sd[1];
+    ZT[4 * i + 2] = (ln1p(rel) - mu[2]) / sd[2]; ZT[4 * i + 3] = (ln1p(rou) - mu[3]) / sd[3];
+    for (let b = 0; b < 8; b++) H[8 * i + b] = D.hist[8 * i + b] / 255;
+    const tmean = D.tmean[i] / 100, tdiur = D.tdiur[i] / 100, prec = D.precip[i], wind = D.wind[i] / 100;
+    const p = 101.325 * Math.exp(-Math.max(D.elev[i], 0) / 8434); PKPA[i] = p;
+    EV[6 * i] = tmean; EV[6 * i + 1] = tdiur; EV[6 * i + 2] = ln1p(prec); EV[6 * i + 3] = Math.log(Math.max(p, 1e-3)); EV[6 * i + 4] = wind; EV[6 * i + 5] = D.uv[i] / 100;
+    ICE[i] = Math.min(1, Math.max(0, (4 - tmean) / 6));
+    AEO[i] = Math.min(1, Math.max(0, wind / 6)) * Math.min(1, Math.max(0, 1 - prec / 500));
+    const vk = D.volc[i]; VOL[i] = vk > 150 ? 0 : Math.exp(-vk / 40);
+    const la = D.lat[i], lo = D.lon[i];
+    COSL[i] = Math.max(0.05, Math.cos(la * Math.PI / 180)); XM[i] = (lo + 180) / 360; const s = Math.sin(la * Math.PI / 180); YM[i] = 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI);
+    let best = 1e9, bi = -1; const lar = la * Math.PI / 180, lor = lo * Math.PI / 180;
+    for (let k = 0; k < kla.length; k++) {
+      const a = Math.sin((kla[k] - lar) / 2) ** 2 + Math.cos(lar) * Math.cos(kla[k]) * Math.sin((klo[k] - lor) / 2) ** 2;
+      const d = 2 * 6371 * Math.asin(Math.sqrt(Math.min(1, a))) - ((known[k].radius || 120) - 120); if (d < best) { best = d; bi = k; }
+    }
+    KNOWNKM[i] = best; KNOWNIDX[i] = bi;
+  }
+}
+
+// ---------------------------------------------------------------- scoring (mirrors analogs/score.py)
+function jsd(p, q) {           // p: target hist (array), q: window i hist, bits
+  const eps = 1e-9; let sp = 0, sq = 0; const P = [], Q = [];
+  for (let b = 0; b < 8; b++) { P[b] = p[b] + eps; Q[b] = q[b] + eps; sp += P[b]; sq += Q[b]; }
+  let r = 0;
+  for (let b = 0; b < 8; b++) { const a = P[b] / sp, c = Q[b] / sq, m = 0.5 * (a + c); r += 0.5 * a * Math.log2(a / m) + 0.5 * c * Math.log2(c / m); }
+  return r;
+}
+function targetVecs(t) {
+  const mu = meta.terrain_mean, sd = meta.terrain_std, f = t.terrain;
+  const zt = [(ln1p(f.slope_med) - mu[0]) / sd[0], (ln1p(f.slope_p90) - mu[1]) / sd[1], (ln1p(f.relief) - mu[2]) / sd[2], (ln1p(f.rough) - mu[3]) / sd[3]];
+  const e = t.env_values;
+  let tv = [e.tmean, e.tmax - e.tmin, ln1p(e.precip_mm), Math.log(Math.max(e.p_kpa, 1e-3)), e.wind, e.uv];
+  tv = tv.map((v, k) => Math.min(meta.env_q99[k], Math.max(meta.env_q01[k], v)));
+  return { zt, tv };
+}
+function scoreAll(t, w) {
+  const { zt, tv } = targetVecs(t), h = t.terrain.hist, ws = meta.env_w, esd = meta.env_std;
+  const wsum = ws.reduce((a, b) => a + b, 0), W3 = w[0] + w[1] + w[2] || 1;
+  const S = new Float32Array(N), Tt = new Float32Array(N), Ee = new Float32Array(N), Rr = new Float32Array(N);
+  const hq = new Float32Array(8);
+  for (let i = 0; i < N; i++) {
+    let d2 = 0; for (let k = 0; k < 4; k++) { const d = ZT[4 * i + k] - zt[k]; d2 += d * d; } d2 /= 4;
+    for (let b = 0; b < 8; b++) hq[b] = H[8 * i + b];
+    d2 += 4 * jsd(h, hq);
+    const T = Math.exp(-d2 / (2 * meta.sigma_t ** 2));
+    let d2e = 0; for (let k = 0; k < 6; k++) { const d = (EV[6 * i + k] - tv[k]) / esd[k]; d2e += ws[k] * d * d; } d2e /= wsum;
+    const E = Math.exp(-d2e / (2 * meta.sigma_e ** 2));
+    const R = 1 - (Math.abs(t.ice - ICE[i]) + Math.abs(t.aeolian - AEO[i]) + Math.abs(t.volcanic - VOL[i])) / 3;
+    Tt[i] = T; Ee[i] = E; Rr[i] = R; S[i] = (w[0] * T + w[1] * E + w[2] * R) / W3;
+  }
+  return { S, T: Tt, E: Ee, R: Rr };
+}
+
+// ---------------------------------------------------------------- ranking and UI
+const fmt = (v, d = 0) => Number(v).toLocaleString('en', { maximumFractionDigits: d, minimumFractionDigits: d });
+const ll = (la, lo) => `${Math.abs(la).toFixed(2)}°${la < 0 ? 'S' : 'N'}, ${Math.abs(lo).toFixed(2)}°${lo < 0 ? 'W' : 'E'}`;
+function dist(i, j) {
+  const a1 = D.lat[i] * Math.PI / 180, a2 = D.lat[j] * Math.PI / 180, o1 = D.lon[i] * Math.PI / 180, o2 = D.lon[j] * Math.PI / 180;
+  const a = Math.sin((a2 - a1) / 2) ** 2 + Math.cos(a1) * Math.cos(a2) * Math.sin((o2 - o1) / 2) ** 2; return 2 * 6371 * Math.asin(Math.sqrt(Math.min(1, a)));
+}
+function rank() {
+  const only = $('onlyNew').checked, idx = [];
+  for (let i = 0; i < N; i++) if (!only || KNOWNKM[i] > 120) idx.push(i);
+  idx.sort((a, b) => SC.S[b] - SC.S[a]);
+  results = [];
+  for (const i of idx) { if (results.every(j => dist(i, j) >= 100)) results.push(i); if (results.length >= 12) break; }
+}
+function barRow(label, v, col) { return `<div class="bar" title="${label} ${(v * 100).toFixed(0)}%"><i style="width:${(v * 100).toFixed(0)}%;background:${col}"></i></div>`; }
+function renderResults() {
+  $('results').innerHTML = results.map((i, n) => {
+    const kn = KNOWNKM[i] <= 120 ? `<span class="tag known">near ${known[KNOWNIDX[i]].name}</span>` : `<span class="tag new">less-studied</span>`;
+    return `<div class="item ${i === selIdx ? 'sel' : ''}" data-i="${i}"><div class="rk">${n + 1}</div><div><div class="ti">${meta.countries[D.country[i]]}</div>
+      <div class="su">${ll(D.lat[i], D.lon[i])} · ${fmt(D.elev[i])} m</div>${kn}
+      <div class="bars">${barRow('Terrain', SC.T[i], '#2dd4bf')}${barRow('Environment', SC.E[i], '#ff8a3d')}${barRow('Ice, wind, volcanism', SC.R[i], '#a9c4e6')}</div></div>
+      <div class="sc">${(SC.S[i] * 100).toFixed(0)}<small>score</small></div></div>`;
+  }).join('') || '<p class="small">No results.</p>';
+  document.querySelectorAll('.item').forEach(el => el.onclick = () => select(+el.dataset.i, true));
+  markers.forEach(m => m.remove()); markers = [];
+  results.forEach((i, n) => {
+    const m = L.marker([D.lat[i], D.lon[i]], { icon: L.divIcon({ className: '', html: `<div style="background:#2dd4bf;color:#04201c;border:2px solid #fff;border-radius:50%;width:22px;height:22px;display:grid;place-items:center;font-weight:700;font-size:11px">${n + 1}</div>`, iconSize: [22, 22] }) }).addTo(map);
+    m.on('click', () => select(i, false)); markers.push(m);
+  });
+}
+function colorFor(f) {   // 0..1 -> viridis-like
+  const st = [[43, 26, 90], [31, 111, 181], [31, 181, 154], [139, 214, 70], [253, 231, 37]], x = Math.min(0.999, Math.max(0, f)) * 4, k = Math.floor(x), u = x - k;
+  return st[k].map((c, j) => Math.round(c + (st[k + 1][j] - c) * u));
+}
+let mode3d = false, gv = null, gPts = null, gMarks = [], gRect = null, gHandler = null, cesiumP = null;
+function loadCesium() {
+  if (cesiumP) return cesiumP;
+  cesiumP = new Promise((res, rej) => {
+    const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'https://cdnjs.cloudflare.com/ajax/libs/cesium/1.135.0/Widgets/widgets.min.css'; document.head.appendChild(l);
+    window.CESIUM_BASE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/cesium/1.135.0/';
+    const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/cesium/1.135.0/Cesium.js'; s.onload = res; s.onerror = () => rej(new Error('Cesium did not load')); document.head.appendChild(s);
+  });
+  return cesiumP;
+}
+async function ensureGlobe() {
+  if (gv) return;
+  await loadCesium();
+  gv = new Cesium.Viewer('globe', { baseLayer: false, animation: false, timeline: false, baseLayerPicker: false, geocoder: false, homeButton: false, sceneModePicker: false, navigationHelpButton: false, infoBox: false, selectionIndicator: false, fullscreenButton: false, skyAtmosphere: new Cesium.SkyAtmosphere() });
+  gv.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({ url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg', maximumLevel: 8, credit: 'NASA GIBS Blue Marble' }));
+  gv.scene.globe.baseColor = Cesium.Color.BLACK; gv.scene.screenSpaceCameraController.minimumZoomDistance = 20000;
+  gHandler = new Cesium.ScreenSpaceEventHandler(gv.scene.canvas);
+  gHandler.setInputAction(e => {
+    const c = gv.camera.pickEllipsoid(e.position, gv.scene.globe.ellipsoid); if (!c) return;
+    const g = Cesium.Cartographic.fromCartesian(c), i = nearest(Cesium.Math.toDegrees(g.latitude), Cesium.Math.toDegrees(g.longitude));
+    if (i < 0) { toast('No scanned land window within 40 km (ocean, or beyond 80° latitude).'); return; } select(i, false);
+  }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+}
+const CPOS = [];
+function gpos(i) { return CPOS[i] || (CPOS[i] = Cesium.Cartesian3.fromDegrees(D.lon[i], D.lat[i], 3000)); }
+function rebuildGlobe() {
+  if (!gv || !SC) return;
+  if (gPts) gv.scene.primitives.remove(gPts);
+  gPts = gv.scene.primitives.add(new Cesium.PointPrimitiveCollection());
+  const lo = SC.lo, hi = SC.hi, thr = SC.thr;
+  for (let i = 0; i < N; i++) {
+    const s = SC.S[i]; if (s < thr) continue;
+    const c = colorFor((s - lo) / (hi - lo));
+    gPts.add({ position: gpos(i), color: Cesium.Color.fromBytes(c[0], c[1], c[2], 215), pixelSize: 4.5 });
+  }
+  gMarks.forEach(m => gv.entities.remove(m)); gMarks = [];
+  results.forEach((i, n) => gMarks.push(gv.entities.add({ position: gpos(i), point: { pixelSize: 16, color: Cesium.Color.fromCssColorString('#2dd4bf'), outlineColor: Cesium.Color.WHITE, outlineWidth: 2, disableDepthTestDistance: 1e9 },
+    label: { text: String(n + 1), font: 'bold 12px sans-serif', fillColor: Cesium.Color.fromCssColorString('#04201c'), verticalOrigin: Cesium.VerticalOrigin.CENTER, disableDepthTestDistance: 1e9 } })));
+  gv.scene.requestRender();
+}
+function globeRect(i) {
+  if (!gv) return; if (gRect) gv.entities.remove(gRect);
+  const la = D.lat[i], lo = D.lon[i], dl = 24 / 111.2, dn = 24 / (111.2 * Math.max(0.05, Math.cos(la * Math.PI / 180)));
+  gRect = gv.entities.add({ rectangle: { coordinates: Cesium.Rectangle.fromDegrees(lo - dn, la - dl, lo + dn, la + dl), material: Cesium.Color.YELLOW.withAlpha(0.15), outline: true, outlineColor: Cesium.Color.YELLOW, height: 0 } });
+}
+async function setMode(m3, cam) {
+  if (m3 === mode3d && !cam) return;
+  if (m3) {
+    try { await ensureGlobe(); } catch (e) { toast('3D globe needs internet access to load CesiumJS.'); return; }
+    const c = map.getCenter(), z = map.getZoom();
+    $('map').hidden = true; heat.hidden = true; $('globe').hidden = false; mode3d = true;
+    gv.resize(); rebuildGlobe();
+    const h = cam ? cam[2] : Math.max(600000, 3.2e7 / 2 ** (z - 1));
+    gv.camera.setView({ destination: Cesium.Cartesian3.fromDegrees(cam ? cam[1] : c.lng, cam ? cam[0] : c.lat, h) });
+    if (selIdx >= 0) globeRect(selIdx);
+  } else {
+    mode3d = false; $('globe').hidden = true; $('map').hidden = false; heat.hidden = false; map.invalidateSize(); drawHeat();
+    if (gv) { const g = Cesium.Cartographic.fromCartesian(gv.camera.positionWC); map.setView([Cesium.Math.toDegrees(g.latitude), Cesium.Math.toDegrees(g.longitude)], Math.min(9, Math.max(2, Math.round(Math.log2(3.2e7 / g.height) + 1))), { animate: false }); }
+  }
+  $('b2d').classList.toggle('on', !m3d()); $('b3d').classList.toggle('on', mode3d);
+}
+function m3d() { return mode3d; }
+function drawHeat() {
+  if (!SC || !map || mode3d) return;
+  const size = map.getSize(); heat.width = size.x; heat.height = size.y; hctx.clearRect(0, 0, size.x, size.y);
+  const z = map.getZoom(), scale = 256 * 2 ** z, c = map.project(map.getCenter(), z), mpp = 36000 * scale / 40075016;
+  const lo = SC.lo, hi = SC.hi, thr = SC.thr;
+  for (let i = 0; i < N; i++) {
+    const s = SC.S[i]; if (s < thr) continue;
+    const x = XM[i] * scale - c.x + size.x / 2, y = YM[i] * scale - c.y + size.y / 2;
+    if (x < -20 || y < -20 || x > size.x + 20 || y > size.y + 20) continue;
+    const px = Math.max(2.5, mpp / COSL[i] * 0.95), col = colorFor((s - lo) / (hi - lo)); hctx.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},0.85)`; hctx.fillRect(x - px / 2, y - px / 2, px, px);
+  }
+}
+function stats() {
+  const a = Float32Array.from(SC.S).sort(); SC.lo = a[Math.floor(N * 0.5)]; SC.hi = a[Math.floor(N * 0.9995)]; SC.thr = a[Math.floor(N * 0.8)];
+}
+function update() {
+  SC = scoreAll(cur, W.map(v => v / 100)); stats(); rank(); renderResults(); drawHeat(); if (mode3d) rebuildGlobe();
+  if (selIdx >= 0) showDetail(selIdx);
+}
+
+// ---------------------------------------------------------------- detail
+function verdict(kind, a, b) {   // a target, b candidate -> [symbol, class]
+  let d, ok, mid;
+  if (kind === 'log') { d = Math.abs(Math.log((a + 0.3) / (b + 0.3))); ok = 0.4; mid = 0.9; }
+  else if (kind === 'K') { d = Math.abs(a - b); ok = 10; mid = 25; }
+  else if (kind === 'frac') { d = Math.abs(a - b); ok = 0.2; mid = 0.5; }
+  else if (kind === 'wind') { d = Math.abs(a - b); ok = 1.5; mid = 3; }
+  else return ['✗', 'bad'];
+  return d <= ok ? ['✓', 'ok'] : d <= mid ? ['~', 'mid'] : ['✗', 'bad'];
+}
+function select(i, fly) {
+  selIdx = i;
+  if (fly && !mode3d) map.flyTo([D.lat[i], D.lon[i]], Math.max(map.getZoom(), 6), { duration: 0.8 });
+  if (mode3d && gv) { gv.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(D.lon[i], D.lat[i], 1500000), duration: 1.2 }); globeRect(i); }
+  if (selRect) selRect.remove();
+  const la = D.lat[i], lo = D.lon[i], dl = 24 / 111.2, dn = 24 / (111.2 * Math.max(0.05, Math.cos(la * Math.PI / 180)));
+  selRect = L.rectangle([[la - dl, lo - dn], [la + dl, lo + dn]], { color: '#ffd24a', weight: 2, fill: false }).addTo(map);
+  document.querySelectorAll('.item').forEach(el => el.classList.toggle('sel', +el.dataset.i === i));
+  showDetail(i);
+}
+function showDetail(i) {
+  const t = cur, f = t.terrain, e = t.env_values, tv = targetVecs(t);
+  const S = SC.S[i], pk = PKPA[i];
+  const smed = D.smed[i] / 100, sp90 = D.sp90[i] / 100, rel = D.relief[i], rou = D.rough[i], tm = D.tmean[i] / 100, td = D.tdiur[i] / 100, pr = D.precip[i], wi = D.wind[i] / 100;
+  const maxSun = (90 - Math.abs(D.lat[i]) + 23.44), tSun = t.body === 'moon' ? (90 - Math.abs(t.lat) + 1.54) : (90 - Math.abs(t.lat) + 25.2);
+  const rows = [
+    ['Median slope (480 m scale)', `${fmt(f.slope_med, 1)}°`, `${fmt(smed, 1)}°`, verdict('log', f.slope_med, smed)],
+    ['Steep terrain (90th percentile slope)', `${fmt(f.slope_p90, 1)}°`, `${fmt(sp90, 1)}°`, verdict('log', f.slope_p90, sp90)],
+    ['Relief within 48 km', `${fmt(f.relief)} m`, `${fmt(rel)} m`, verdict('log', f.relief / 100, rel / 100)],
+    ['Roughness (detrended)', `${fmt(f.rough)} m`, `${fmt(rou)} m`, verdict('log', f.rough / 50, rou / 50)],
+    ['Mean annual temperature', `${fmt(e.tmean)} °C`, `${fmt(tm, 1)} °C`, verdict('K', Math.max(e.tmean, meta.env_min[0]), tm)],
+    ['Temperature range (hottest to coldest day)', `${fmt(e.tmax - e.tmin)} K`, `${fmt(td, 1)} K`, verdict('K', Math.min(e.tmax - e.tmin, meta.env_max[1]), td)],
+    ['Precipitation', `${fmt(e.precip_mm)} mm/yr`, `${fmt(pr)} mm/yr`, verdict('log', e.precip_mm / 50, pr / 50)],
+    ['Surface pressure', e.p_kpa > 0 ? `${fmt(e.p_kpa, 1)} kPa` : 'vacuum', `${fmt(pk, 1)} kPa`, ['✗', 'bad']],
+    ['Wind at 10 m', `${fmt(e.wind, 1)} m/s`, `${fmt(wi, 1)} m/s`, verdict('wind', e.wind, wi)],
+    ['Ultraviolet radiation (UV index)', 'unfiltered (no ozone)', `${fmt(D.uv[i] / 100, 1)}`, D.uv[i] / 100 >= 7 ? ['~', 'mid'] : ['✗', 'bad']],
+    ['Ground-ice potential', `${fmt(t.ice, 1)}`, `${fmt(ICE[i], 1)}`, verdict('frac', t.ice, ICE[i])],
+    ['Wind-driven (aeolian) processes', `${fmt(t.aeolian, 1)}`, `${fmt(AEO[i], 1)}`, verdict('frac', t.aeolian, AEO[i])],
+    ['Basaltic volcanic setting', `${fmt(t.volcanic, 1)}`, `${fmt(VOL[i], 1)} (${fmt(D.volc[i])} km to volcano)`, verdict('frac', t.volcanic, VOL[i])],
+    ['Gravity', t.body === 'moon' ? '1.62 m/s²' : '3.71 m/s²', '9.81 m/s²', ['✗', 'bad']],
+    ['Radiation environment', t.body === 'moon' ? 'unshielded' : 'thin shielding', 'atmosphere + magnetic field', ['✗', 'bad']],
+  ];
+  const yes = rows.filter(r => r[3][1] === 'ok').map(r => r[0].toLowerCase()), no = rows.filter(r => r[3][1] === 'bad').map(r => r[0].toLowerCase());
+  const uses = [];
+  if (SC.T[i] > 0.6) uses.push('Rover mobility, slope-climbing and landing-hazard tests on comparable terrain.');
+  if (t.ice > 0.5 && ICE[i] > 0.5) uses.push('Cold, ground-ice terrain for testing drills, ice extraction and cold-soaked hardware.');
+  if (t.volcanic > 0.5 && VOL[i] > 0.4) uses.push('Basaltic volcanic terrain for lava-tube, cave and cone exploration by robots.');
+  if (t.aeolian > 0.5 && AEO[i] > 0.4) uses.push('Windy, dry terrain for dust, aeolian-erosion and sand-mobility studies.');
+  if (Math.abs(D.lat[i]) > 60 && t.body === 'moon') uses.push(`Low Sun for much of the year (up to ${fmt(maxSun, 0)}° elevation versus about ${fmt(tSun, 0)}° at the lunar site): shadow-aware navigation and perception tests.`);
+  if (!uses.length) uses.push('Partial analog only: use it for the dimensions marked ✓ and rely on other sites for the rest.');
+  const kn = KNOWNKM[i] <= 120 ? `Inside the area of the well-known site "${known[KNOWNIDX[i]].name}".` : `Outside the area of every well-known analog site or region in our list (nearest: ${known[KNOWNIDX[i]].name}, about ${fmt(Math.max(0, KNOWNKM[i] - 120))} km beyond its area). Treat as a lead for study.`;
+  if (miniMap) { miniMap.remove(); miniMap = null; }
+  const th = thumbs[i] ? `<figure><img src="data:image/png;base64,${thumbs[i]}" alt=""><figcaption>Earth window (hillshade, 48 km)</figcaption></figure>` : `<div><div class="mini" id="mini"></div><div class="small" style="text-align:center;margin-top:3px">Earth window, NASA Blue Marble relief (48 km)</div></div>`;
+  $('detail').innerHTML = `
+    <h3>Selected Earth window</h3>
+    <div style="display:flex;justify-content:space-between;align-items:baseline"><div style="font-size:16px;font-weight:500">${meta.countries[D.country[i]]} · ${ll(D.lat[i], D.lon[i])}</div><div style="font-size:26px;font-weight:300">${(S * 100).toFixed(0)}<small style="font-size:12px;color:var(--dim)"> /100</small></div></div>
+    <p class="small">${kn}</p>
+    <div class="bars" style="margin:8px 0 10px">${barRow('Terrain', SC.T[i], '#2dd4bf')}${barRow('Environment', SC.E[i], '#ff8a3d')}${barRow('Ice, wind, volcanism', SC.R[i], '#a9c4e6')}</div>
+    <div class="small" style="display:flex;justify-content:space-between"><span style="color:#2dd4bf">terrain ${(SC.T[i] * 100).toFixed(0)}%</span><span style="color:#ff8a3d">environment ${(SC.E[i] * 100).toFixed(0)}%</span><span style="color:#a9c4e6">ice·wind·volcano ${(SC.R[i] * 100).toFixed(0)}%</span></div>
+    <h3>Side by side, same scale</h3>
+    <div class="pair"><figure><img src="data:image/png;base64,${t.thumb}" alt=""><figcaption>${t.name} (${t.body === 'moon' ? 'Moon' : 'Mars'})</figcaption></figure>${th}</div>
+    <h3>Slope distribution</h3><canvas id="hist" width="360" height="110"></canvas>
+    <h3>What matches and what does not</h3>
+    <table><tr><th></th><th>${t.body === 'moon' ? 'Moon' : 'Mars'}</th><th>Earth</th><th></th></tr>${rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td class="v ${r[3][1]}">${r[3][0]}</td></tr>`).join('')}</table>
+    <p class="small" style="margin-top:6px">✓ close · ~ partly · ✗ different. Target environment values are rounded literature ranges, clipped to what exists on Earth for scoring.</p>
+    <h3>Strong analogy</h3><p style="font-size:13px">${yes.length ? yes.join(', ') + '.' : 'No dimension is a close match at the chosen thresholds.'}</p>
+    <h3>Where the analogy breaks down</h3><p style="font-size:13px">${no.join(', ')}. Earth cannot reproduce ${t.body === 'moon' ? 'the lunar vacuum, one-sixth gravity and the radiation environment' : 'the thin Martian atmosphere, low gravity and the radiation environment'}.</p>
+    <h3>How it could help exploration</h3><ul class="pts">${uses.map(u => `<li>${u}</li>`).join('')}</ul>`;
+  drawHist(i);
+  if (!thumbs[i] && $('mini')) {
+    miniMap = L.map('mini', { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false });
+    L.tileLayer('https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg', { maxNativeZoom: 8, noWrap: true }).addTo(miniMap);
+    miniMap.setView([D.lat[i], D.lon[i]], Math.abs(D.lat[i]) > 50 ? 8 : 9);
+    const la = D.lat[i], lo = D.lon[i], dl = 24 / 111.2, dn = 24 / (111.2 * Math.max(0.05, Math.cos(la * Math.PI / 180)));
+    L.rectangle([[la - dl, lo - dn], [la + dl, lo + dn]], { color: '#ffd24a', weight: 2, fill: false }).addTo(miniMap);
+  }
+}
+function drawHist(i) {
+  const c = $('hist'); if (!c) return; const g = c.getContext('2d'), w = c.width, h = c.height; g.clearRect(0, 0, w, h);
+  const a = cur.terrain.hist, b = []; for (let k = 0; k < 8; k++) b.push(H[8 * i + k]);
+  const labels = ['0–2', '2–5', '5–8', '8–12', '12–16', '16–22', '22–30', '30+'], mx = Math.max(...a, ...b, 0.05), bw = w / 8;
+  g.font = '10px sans-serif'; g.textAlign = 'center';
+  for (let k = 0; k < 8; k++) {
+    const x = k * bw + 4, ha = a[k] / mx * (h - 26), hb = b[k] / mx * (h - 26);
+    g.fillStyle = cur.body === 'moon' ? '#a9c4e6' : '#ff8a3d'; g.fillRect(x, h - 14 - ha, bw / 2 - 4, ha);
+    g.fillStyle = '#2dd4bf'; g.fillRect(x + bw / 2 - 4, h - 14 - hb, bw / 2 - 4, hb);
+    g.fillStyle = '#93a0b8'; g.fillText(labels[k], k * bw + bw / 2, h - 3);
+  }
+  g.textAlign = 'left'; g.fillStyle = cur.body === 'moon' ? '#a9c4e6' : '#ff8a3d'; g.fillText('■ ' + (cur.body === 'moon' ? 'Moon' : 'Mars'), 6, 11); g.fillStyle = '#2dd4bf'; g.fillText('■ Earth window (slope, degrees)', 62, 11);
+}
+function setTarget(id) {
+  cur = targets.find(t => t.id === id); const f = cur.terrain;
+  $('tcard').innerHTML = `<img src="data:image/png;base64,${cur.thumb}" alt=""><div><div class="nm">${cur.name}</div><div class="nt">${cur.note}</div>
+    <div class="kv"><span>Median slope</span><span>${fmt(f.slope_med, 1)}°</span><span>Relief (48 km)</span><span>${fmt(f.relief)} m</span><span>Roughness</span><span>${fmt(f.rough)} m</span><span>Location</span><span>${ll(cur.lat, cur.lon)}</span></div></div>`;
+  $('lgTitle').textContent = `Similarity to ${cur.name}`; $('bMap').href = `../#goto=${cur.body},${cur.lat},${cur.lon}`;
+  selIdx = -1; if (selRect) { selRect.remove(); selRect = null; } $('detail').innerHTML = '<p class="small">Select a result or click the map.</p>';
+  update();
+}
+function nearest(lat, lon) {
+  let best = 1e9, bi = -1; const a1 = lat * Math.PI / 180, o1 = lon * Math.PI / 180;
+  for (let i = 0; i < N; i++) { const a2 = D.lat[i] * Math.PI / 180, o2 = D.lon[i] * Math.PI / 180; const a = Math.sin((a2 - a1) / 2) ** 2 + Math.cos(a1) * Math.cos(a2) * Math.sin((o2 - o1) / 2) ** 2; const d = 2 * 6371 * Math.asin(Math.sqrt(Math.min(1, a))); if (d < best) { best = d; bi = i; } }
+  return best < 40 ? bi : -1;
+}
+function toast(t) { const m = $('msg'); m.textContent = t; m.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => m.style.display = 'none', 3500); }
+
+// ---------------------------------------------------------------- start
+(async function start() {
+  map = L.map('map', { minZoom: 2, maxZoom: 9, zoomAnimation: false, fadeAnimation: false, markerZoomAnimation: false, worldCopyJump: false, maxBounds: [[-85, -180], [85, 180]], zoomControl: true }).setView([20, 10], 2);
+  const blue = L.tileLayer('https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg', { maxNativeZoom: 8, noWrap: true, attribution: 'Imagery: NASA GIBS / Blue Marble' }).addTo(map);
+  const modis = L.tileLayer('https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/2024-09-15/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg', { maxNativeZoom: 9, noWrap: true, attribution: 'Imagery: NASA GIBS / MODIS Terra' });
+  L.control.layers({ 'Shaded relief (NASA Blue Marble)': blue, 'True colour (NASA MODIS Terra)': modis }, {}, { position: 'topright' }).addTo(map);
+  heat = $('heat'); hctx = heat.getContext('2d');
+  map.on('move zoom moveend zoomend viewreset resize', () => requestAnimationFrame(drawHeat));
+  try { await load(); } catch (e) { toast('Could not load the dataset: ' + e.message); return; }
+  known.forEach(k => L.circleMarker([k.lat, k.lon], { radius: 3, color: '#ffd24a', weight: 1, fillOpacity: 0.7 }).bindTooltip(k.name + ' (well-known analog site)').addTo(map));
+  const sel = $('target');
+  sel.innerHTML = ['moon', 'mars'].map(b => `<optgroup label="${b === 'moon' ? 'Moon' : 'Mars'}">` + targets.filter(t => t.body === b).map(t => `<option value="${t.id}">${t.name}</option>`).join('') + '</optgroup>').join('');
+  sel.onchange = () => setTarget(sel.value);
+  // restore the previous session: URL hash first (shareable), then localStorage
+  let saved = null;
+  const h0 = location.hash.slice(1);
+  if (h0.includes('=')) { const q = new URLSearchParams(h0); saved = { t: q.get('t'), w: q.get('w'), n: q.get('n'), s: q.get('s'), v: q.get('v'), c: q.get('c') }; }
+  else if (targets.some(t => t.id === h0)) saved = { t: h0 };
+  else { try { saved = JSON.parse(localStorage.getItem('atlas-state') || 'null'); } catch (e) {} }
+  if (saved && targets.some(t => t.id === saved.t)) sel.value = saved.t;
+  if (saved && saved.w) { const w = String(saved.w).split(',').map(Number); if (w.length === 3 && w.every(Number.isFinite)) { W = w; ['wT', 'wE', 'wR'].forEach((id, k) => { $(id).value = w[k]; $('o' + id.slice(1)).textContent = w[k]; }); document.querySelectorAll('.row button[data-p]').forEach(b => b.classList.toggle('on', b.dataset.p === w.join(','))); } }
+  if (saved && saved.n === '1') $('onlyNew').checked = true;
+  ['wT', 'wE', 'wR'].forEach((id, k) => $(id).oninput = () => { W[k] = +$(id).value; $('o' + id.slice(1)).textContent = W[k]; document.querySelectorAll('.row button[data-p]').forEach(b => b.classList.remove('on')); update(); });
+  document.querySelectorAll('.row button[data-p]').forEach(b => b.onclick = () => {
+    const p = b.dataset.p.split(',').map(Number); W = p; ['wT', 'wE', 'wR'].forEach((id, k) => { $(id).value = p[k]; $('o' + id.slice(1)).textContent = p[k]; });
+    document.querySelectorAll('.row button[data-p]').forEach(x => x.classList.toggle('on', x === b)); update();
+  });
+  $('onlyNew').onchange = () => update();
+  map.on('click', ev => { const i = nearest(ev.latlng.lat, ev.latlng.lng); if (i < 0) { toast('No scanned land window within 40 km (ocean, or beyond 80° latitude).'); return; } select(i, false); });
+  $('bCsv').onclick = () => {
+    const head = 'rank,target,latitude,longitude,country,score,terrain,environment,ice_wind_volcano,elevation_m,nearest_well_known_site,km_to_it';
+    const rows = results.map((i, n) => [n + 1, `"${cur.name}"`, D.lat[i].toFixed(3), D.lon[i].toFixed(3), `"${meta.countries[D.country[i]]}"`, SC.S[i].toFixed(3), SC.T[i].toFixed(3), SC.E[i].toFixed(3), SC.R[i].toFixed(3), D.elev[i], `"${known[KNOWNIDX[i]].name}"`, KNOWNKM[i].toFixed(0)].join(','));
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([head + '\n' + rows.join('\n')], { type: 'text/csv' })); a.download = `analog-atlas-${cur.id}.csv`; a.click();
+  };
+  $('bHow').onclick = () => $('dlg').showModal(); $('bClose').onclick = () => $('dlg').close();
+  fetch('../api/meta').then(r => { if (r.ok) $('bMap').hidden = false; }).catch(() => {});
+  $('b2d').onclick = () => setMode(false); $('b3d').onclick = () => setMode(true);
+  setTarget(sel.value);
+  if (saved && saved.c) { const c = String(saved.c).split(',').map(Number); if (c.length === 3 && c.every(Number.isFinite) && saved.v !== '3d') map.setView([c[0], c[1]], c[2], { animate: false }); }
+  if (saved && saved.s != null && saved.s !== '' && +saved.s >= 0 && +saved.s < N) select(+saved.s, false);
+  if (saved && saved.v === '3d') { const c = saved.c ? String(saved.c).split(',').map(Number) : null; setMode(true, c && c.length === 3 && c.every(Number.isFinite) ? c : null); }
+  let last = '';
+  setInterval(() => {
+    if (!cur) return;
+    let c;
+    if (mode3d && gv) { const g = Cesium.Cartographic.fromCartesian(gv.camera.positionWC); c = [Cesium.Math.toDegrees(g.latitude).toFixed(2), Cesium.Math.toDegrees(g.longitude).toFixed(2), Math.round(g.height)]; }
+    else { const m = map.getCenter(); c = [m.lat.toFixed(2), m.lng.toFixed(2), map.getZoom()]; }
+    const q = new URLSearchParams({ t: cur.id, w: W.join(','), n: $('onlyNew').checked ? '1' : '0', s: selIdx >= 0 ? String(selIdx) : '', v: mode3d ? '3d' : '2d', c: c.join(',') });
+    const s = q.toString(); if (s === last) return; last = s;
+    try { history.replaceState(null, '', '#' + s); localStorage.setItem('atlas-state', JSON.stringify(Object.fromEntries(q))); } catch (e) {}
+  }, 1000);
+  window.__atlas = { get cur() { return cur; }, scoreAll, targets, meta, D, N: () => N, setTarget, select, results: () => results };
+})();
+</script>
+</body>
+</html>
