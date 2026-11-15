@@ -1,4 +1,4 @@
-# Routes Beyond Earth: architecture overview (companion project)
+# Far from Earth: architecture overview (companion project)
 
 *This is the team's earlier route-planning and simulator project. It is not part of the Analog Atlas submission.*
 

@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parent.parent
 WEB = ROOT / "web"
 PLACES = ROOT / "data" / "places"
 
-app = FastAPI(title="Routes Beyond Earth")
+app = FastAPI(title="Far from Earth")
 BODIES: dict[str, Body] = {
     name: Body(name) for name in ("moon", "mars") if (GRIDS / name / "meta.json").exists()
 }

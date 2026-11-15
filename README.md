@@ -140,11 +140,11 @@ tests/             atlas_parity.py
 tools/             atlas_shots.py (screenshots), build_demo.py (PDF), cdp.py
 ```
 
-## The whole project: Routes Beyond Earth + Analog Atlas
+## The whole project: Far from Earth + Analog Atlas
 
 This repository holds both tools of Team Infinity, connected by buttons:
 
-* **Routes Beyond Earth** (`server/`, `web/`): a layered Moon/Mars map with route planning for an astronaut on foot, a crewed rover, a robotic rover and a drone, plus a physics-based driving and walking simulator on the same NASA terrain, a drone, a shared multiplayer world and live NASA/JPL rover positions. Details: [README_ROUTES.md](README_ROUTES.md) and [docs/routes_beyond_earth/](docs/routes_beyond_earth/).
+* **Far from Earth** (`server/`, `web/`): a layered Moon/Mars map with route planning for an astronaut on foot, a crewed rover, a robotic rover and a drone, plus a physics-based driving and walking simulator on the same NASA terrain, a drone, a shared multiplayer world and live NASA/JPL rover positions. Details: [README_ROUTES.md](README_ROUTES.md) and [docs/routes_beyond_earth/](docs/routes_beyond_earth/).
 * **Analog Atlas** (`analogs/`, `docs/atlas/`): the entry for the challenge "Identify Earth Locations that Analog the Permanent Moon Base Locations and Mars". It also ships inside the map (`web/atlas/`): the map has an "Earth analogs of this site" button, and the Atlas has a "Route planner and simulator" button.
 
 Run everything together (needs the source DEMs and the routing grids, see README_ROUTES.md for the data steps):
@@ -158,7 +158,7 @@ The Atlas alone needs no server and no large data: open the live page or run `py
 
 ## Use of Super Intelligence (SI / AI) tools
 
-Large parts of the code and documentation of both tools were written with an AI coding assistant, including the design of the Atlas method. See [docs/SI_DISCLOSURE.md](docs/SI_DISCLOSURE.md) (Analog Atlas) and [SI_DISCLOSURE.md](SI_DISCLOSURE.md) (Routes Beyond Earth).
+Large parts of the code and documentation of both tools were written with an AI coding assistant, including the design of the Atlas method. See [docs/SI_DISCLOSURE.md](docs/SI_DISCLOSURE.md) (Analog Atlas) and [SI_DISCLOSURE.md](SI_DISCLOSURE.md) (Far from Earth).
 
 ## Licence
 

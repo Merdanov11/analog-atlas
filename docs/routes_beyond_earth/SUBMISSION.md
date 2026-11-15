@@ -6,11 +6,11 @@ Everything here is in English, as the rules require. Fields follow the 2026 Proj
 
 ## Project Name
 
-Routes Beyond Earth
+Far from Earth
 
 ## High-Level Project Summary
 
-Routes Beyond Earth is a Google-Maps-style navigator for Mars (and the Moon) built on NASA open data. Click two points on a layered map (Viking imagery, MOLA topography, THEMIS thermal infrared, TES thermal inertia, dust, roughness and mineralogy) and it computes the fastest, safest and most efficient route for an astronaut on foot, a crewed rover, a robotic rover or a drone, with slope limits, daylight shifts, temperature, radiation and dust-storm estimates. One more click opens a physics-based simulator on the same terrain, so a crew can rehearse the Marswalk from the ground, leave the rover on foot, call a drone, and share the world with teammates and with the real Perseverance and Curiosity rovers, whose positions come live from NASA/JPL. It answers "Interplanetary Survival Guide: Martian Map" by turning scattered NASA layers into one hyperlocal, route-aware tool that helps explorers plan, prepare and move safely.
+Far from Earth is a Google-Maps-style navigator for Mars (and the Moon) built on NASA open data. Click two points on a layered map (Viking imagery, MOLA topography, THEMIS thermal infrared, TES thermal inertia, dust, roughness and mineralogy) and it computes the fastest, safest and most efficient route for an astronaut on foot, a crewed rover, a robotic rover or a drone, with slope limits, daylight shifts, temperature, radiation and dust-storm estimates. One more click opens a physics-based simulator on the same terrain, so a crew can rehearse the Marswalk from the ground, leave the rover on foot, call a drone, and share the world with teammates and with the real Perseverance and Curiosity rovers, whose positions come live from NASA/JPL. It answers "Interplanetary Survival Guide: Martian Map" by turning scattered NASA layers into one hyperlocal, route-aware tool that helps explorers plan, prepare and move safely.
 
 ## Link to Project Demo
 
@@ -26,7 +26,7 @@ The repository contains the full source code, the README with screenshots and ru
 
 ## Detailed Project Description
 
-**What it does.** Routes Beyond Earth has three parts that share one data model.
+**What it does.** Far from Earth has three parts that share one data model.
 
 1. *A layered map and route planner.* The map shows Mars (or the Moon) with NASA base maps and seven science overlays that can be blended with an opacity slider: THEMIS day and night infrared (thermal), TES thermal inertia (geophysical), TES dust cover (atmospheric), MOLA roughness (topographic), TES albedo (optical) and TES pyroxene abundance (spectral). The user picks a start and an end point, and the server computes three routes (fastest, safest, most efficient) for four travellers: an astronaut on foot (25° maximum slope, 3 km/h, 7-hour daylight shifts), a crewed rover, a robotic rover and a drone. Identical alternatives are merged into one card. Each route comes with a trip plan: time, energy, ascent and descent, steepest slope, elevation profile, temperature range, radiation dose estimate, dust-storm risk, rests and daylight windows. Landing sites, IAU place names and the live positions of Perseverance and Curiosity are on the map.
 2. *A driving and walking simulator.* "Drive this route" opens a Three.js simulator. The route is cut into 1.5 km stages; for each stage the server builds a 4 m terrain patch from the MOLA (or LOLA) elevation model, refined with a statistical model of craters and rocks that is clearly labelled as a model. Vehicles use raycast wheels with soil sinkage and thrust (Bekker and Janosi–Hanamoto models), suspension, battery, heat, solar power and dust. The astronaut can get out of the rover, walk with a stride-matched walk cycle in third person, call a drone, and switch control between them. On the Moon a drone is a rocket "hopper" (a concept); on Mars it is a rotorcraft whose lift depends on the thin atmosphere. A local planner (A* with boulder avoidance) drives the autopilot.

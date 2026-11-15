@@ -1,4 +1,4 @@
-# Routes Beyond Earth
+# Far from Earth
 
 **A layered navigator, a physics-based driving simulator and a shared world for Mars (and the Moon), built on NASA open data.**
 
