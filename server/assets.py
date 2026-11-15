@@ -25,9 +25,9 @@ TTL = 600.0
 MMGIS = "https://mars.nasa.gov/mmgis-maps/{m}/Layers/json/{m}_waypoints{suffix}.json"
 SOL_S = 88775.244                                   # length of a Martian day, s
 MISSIONS = {
-    "perseverance": dict(m="M20", en="Perseverance", ru="Персеверанс", agency="NASA", kind="rover",
+    "perseverance": dict(m="M20", en="Perseverance", agency="NASA", kind="rover",
                          epoch=datetime(2021, 2, 18, 20, 55, tzinfo=timezone.utc), year=2021),
-    "curiosity": dict(m="MSL", en="Curiosity", ru="Кьюриосити", agency="NASA", kind="rover",
+    "curiosity": dict(m="MSL", en="Curiosity", agency="NASA", kind="rover",
                       epoch=datetime(2012, 8, 6, 5, 17, tzinfo=timezone.utc), year=2012),
 }
 _cache: dict = {}
@@ -69,7 +69,7 @@ def _live(key: str) -> dict | None:
     lat, lon = float(p["lat"]), float(p["lon"])
     elev = p.get("elev_geoid")
     as_of = mi["epoch"] + timedelta(seconds=sol * SOL_S)
-    return dict(id=key, en=mi["en"], ru=mi["ru"], agency=mi["agency"], kind=mi["kind"], year=mi["year"],
+    return dict(id=key, en=mi["en"], agency=mi["agency"], kind=mi["kind"], year=mi["year"],
                 lat=lat, lon=lon, elev_m=None if elev in (None, -9999.0) else round(float(elev), 1),
                 heading_deg=round(float(p.get("yaw", 0.0)), 1), pitch_deg=round(float(p.get("pitch", 0.0)), 1),
                 roll_deg=round(float(p.get("roll", 0.0)), 1), sol=sol, total_km=round(float(p.get("dist_total_m", 0)) / 1000, 2),
@@ -103,7 +103,7 @@ def assets(body: str, trace: bool = False) -> list[dict]:
         # Curiosity and Perseverance are already in the live data: do not duplicate the catalogue landing next to them.
         if body == "mars" and s["en"].startswith(("Curiosity", "Perseverance")) and live_pos:
             continue
-        out.append(dict(id="site:" + s["en"], en=s["en"], ru=s["ru"], agency=s["agency"], kind=s["kind"], year=s["year"],
+        out.append(dict(id="site:" + s["en"], en=s["en"], agency=s["agency"], kind=s["kind"], year=s["year"],
                         lat=s["lat"], lon=s["lon"], live=False, stale=False,
                         source="Landing-site catalogue (NASA NSSDCA and agency reports)", source_url="https://nssdc.gsfc.nasa.gov/"))
     return out

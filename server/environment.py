@@ -109,12 +109,12 @@ def dose_rate_msv_day(body: str, elev_m: float) -> float:
 
 # Major meteor showers: name, month and day of the peak, half-width (days), ZHR.
 SHOWERS = [
-    ("Quadrantids", "Квадрантиды", 1, 3, 1, 110), ("Lyrids", "Лириды", 4, 22, 1, 18),
-    ("Eta Aquariids", "Эта-Аквариды", 5, 6, 3, 50),
-    ("Southern Delta Aquariids", "Южные Дельта-Аквариды", 7, 30, 3, 25),
-    ("Perseids", "Персеиды", 8, 12, 2, 100), ("Orionids", "Ориониды", 10, 21, 2, 20),
-    ("Leonids", "Леониды", 11, 17, 1, 15), ("Geminids", "Геминиды", 12, 14, 2, 150),
-    ("Ursids", "Урсиды", 12, 22, 1, 10),
+    ("Quadrantids", 1, 3, 1, 110), ("Lyrids", 4, 22, 1, 18),
+    ("Eta Aquariids", 5, 6, 3, 50),
+    ("Southern Delta Aquariids", 7, 30, 3, 25),
+    ("Perseids", 8, 12, 2, 100), ("Orionids", 10, 21, 2, 20),
+    ("Leonids", 11, 17, 1, 15), ("Geminids", 12, 14, 2, 150),
+    ("Ursids", 12, 22, 1, 10),
 ]
 
 
@@ -123,10 +123,10 @@ def showers_between(start: datetime, end: datetime) -> list[dict]:
     from datetime import timedelta
     out = []
     for year in range(start.year - 1, end.year + 2):
-        for en, ru, mo, day, hw, zhr in SHOWERS:
+        for en, mo, day, hw, zhr in SHOWERS:
             peak = datetime(year, mo, day, tzinfo=start.tzinfo)
             if peak - timedelta(days=hw) <= end and peak + timedelta(days=hw + 1) >= start:
-                out.append(dict(en=en, ru=ru, peak=peak.strftime("%Y-%m-%d"), zhr=zhr))
+                out.append(dict(en=en, peak=peak.strftime("%Y-%m-%d"), zhr=zhr))
             if len(out) >= 12:
                 return out
     return out

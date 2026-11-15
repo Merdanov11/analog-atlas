@@ -50,52 +50,8 @@ const L = {
     liveNote: 'Positions of Perseverance and Curiosity come from NASA MMGIS (updated after each drive).', noAssets: 'No known vehicles within 25 km of the route.', ago: 'as of', vsp: 'Vertical',
     cloudy: 'haze',
   },
-  ru: {
-    stage: 'Этап', toGo: 'осталось', simTime: 'Время миссии', local: 'Местное время', credits: 'Кредиты', samples: 'Образцы',
-    heading: 'Курс', battery: 'Батарея', suit: 'Скафандр', temp: 'Темп.', damage: 'Повреждения', pitch: 'Тангаж', roll: 'Крен', power: 'Мощность', solar: 'Солнце',
-    alt: 'Высота', slip: 'Пробуксовка', weather: 'Погода', sun: 'Солнце', ambient: 'Поверхность', dust: 'Пыль τ', wind: 'Ветер', vis: 'Видимость', dose: 'Доза',
-    cam: ['Сзади', 'Из кабины', 'Орбита'], camBtn: 'Камера', lights: 'Фары', garage: 'Гараж', pause: 'Пауза', resume: 'Продолжить', exit: 'К карте',
-    auto: 'Автопилот', cruise: 'Перелёт', start: 'Начать миссию', replay: 'Ещё раз', warpLim: 'лимит ЦП',
-    clear: 'Ясно', storm: 'Пыльная буря', calm: 'Штиль', night: 'Ночь', day: 'День', twilight: 'Сумерки',
-    briefTitle: 'Брифинг миссии', routeInfo: 'Маршрут', dist: 'Расстояние', eta: 'Оценка планировщика', body: { moon: 'Луна', mars: 'Марс' },
-    vehicle: 'Техника', veh: { rover_crew: 'Пилотируемый ровер', rover_robot: 'Беспилотный ровер', walker: 'Астронавт (EVA)', drone: 'Дрон' },
-    options: 'Параметры', traction: 'Контроль сцепления', stability: 'Помощь стабилизации', hillHold: 'Удержание на склоне / стояночный тормоз', dmgOn: 'Повреждения от ударов',
-    weatherMode: 'Погода', wm: { calm: 'Штиль', auto: 'По сезону', stormy: 'Бурная' }, tod: 'Время суток', todv: { auto: 'По плану', morning: 'Утро', noon: 'Полдень', evening: 'Вечер', night: 'Ночь' }, controls: 'Управление',
-    upgrades: 'Гараж', buy: 'Купить', max: 'МАКС', repair: 'Ремонт 25 %', repairHint: 'Сначала остановитесь', cleanP: 'Очистить панели (X)', stopFirst: 'Сначала остановите технику',
-    cantAfford: 'Не хватает кредитов', bought: 'Улучшение установлено', repaired: 'Отремонтировано', cleaned: 'Панели очищены',
-    up: { motor: 'Двигатели', battery: 'Аккумулятор', solar: 'Солнечные панели', tires: 'Шины', suspension: 'Подвеска', thermal: 'Терморегуляция', scanner: 'Сканер опасностей', lights: 'Фары', armor: 'Броня' },
-    upd: { motor: '+22 % мощности, +7 % макс. скорости', battery: '+30 % ёмкости', solar: '+35 % выработки', tires: '+7 % сцепления, меньше сопротивление качению', suspension: 'Мягче ход, больше ход подвески',
-           thermal: 'Лучше изоляция, мощнее обогрев', scanner: 'Радар показывает крутые склоны (1) и валуны (2)', lights: 'Дальше и ярче свет ночью', armor: '−18 % урона от ударов' },
-    lowBat: 'Батарея разряжается', critBat: 'Батарея на исходе! Ищите свет или ждите', flip: 'Опрокинулись! Нажмите R, чтобы поставить на колёса', flipFee: 'Плата за эвакуацию',
-    impact: 'Удар', destroyed: 'Техника уничтожена', frozen: 'Системы замёрзли — ждите тепла', overheated: 'Перегрев — ждите остывания',
-    stormOn: 'Пыльная буря: падают видимость и выработка панелей', nightOn: 'Наступает ночь — включите фары (L)', offRoute: 'Далеко от маршрута — вернитесь к вехам',
-    stageDone: 'Контрольная точка', sample: 'Образец собран', arrival: 'Вы на месте!', apBlocked: 'Автопилот: безопасного пути нет — берите управление', apOn: 'Автопилот включён',
-    apOff: 'Автопилот выключен', steep: 'Крутой склон!', hazard: 'Опасность впереди', cold: 'Батарея замёрзла: мощность снижена', hot: 'Батарея перегрета: мощность снижена',
-    cruiseTitle: 'Идёт перелёт', cruiseSub: 'Автопилот ведёт технику по маршруту; остановится на финише, в бурю или по кнопке', stop: 'Остановить и взять управление',
-    clock: 'Часы миссии', distLeft: 'Осталось', cstate: 'Состояние', reason: { move: 'Едем', night: 'Ждём рассвета', temp: 'Ждём: на поверхности слишком жарко/холодно', charge: 'Зарядка', storm: 'Пережидаем бурю' },
-    resultTitle: 'Отчёт о миссии', ok: 'Миссия выполнена', fail: 'Миссия провалена', earned: 'Заработано кредитов', driven: 'Проехали', time: 'Время', samplesGot: 'Образцы',
-    hint: 'W/S газ · A/D руль · Пробел тормоз', loading: 'Готовлю рельеф по данным NASA…', noRoute: 'Нет маршрута. Постройте маршрут на карте и нажмите «Проехать».',
-    backMap: 'Открыть карту', loadErr: 'Не удалось загрузить рельеф', sectors: 'Загрузка следующего участка…', paused: 'Пауза', setts: 'Настройки',
-    keys: [['W / S, ↑ / ↓', 'газ / задний ход'], ['A / D, ← / →', 'руль'], ['Пробел', 'тормоз'], ['T', 'автопилот'], ['[ ]', 'время медленнее / быстрее'], ['C', 'камера'],
-           ['L', 'фары'], ['X', 'очистить панели'], ['R', 'поставить на колёса'], ['G', 'гараж'], ['P / Esc', 'пауза'], ['Мышь / колесо', 'обзор / масштаб']],
-    droneKeys: [['W / S', 'вперёд / назад'], ['A / D', 'поворот'], ['Q / E', 'боком'], ['Пробел / Shift', 'вверх / вниз'], ['T', 'автопилот (взлёт, полёт, посадка)'], ['[ ]', 'время'], ['C', 'камера'], ['R', 'поставить ровно'], ['G', 'гараж'], ['P / Esc', 'пауза']],
-    walkKeys: [['W A S D', 'идти'], ['Shift', 'прыжками (бег)'], ['Пробел', 'прыжок'], ['Мышь', 'осмотреться'], ['T', 'автопилот'], ['[ ]', 'время'], ['G', 'гараж'], ['P / Esc', 'пауза']],
-    fleetKeys: [['V', 'выйти / сесть / сесть на дрон'], ['H', 'вызвать дрон'], ['1 2 3', 'переключить: машина / космонавт / дрон']],
-    exited: 'Вы вышли из машины', entered: 'Вы снова в машине', noCrew: 'У этой машины нет экипажа', stopFirst2: 'Сначала остановите машину', tooFarVeh: 'Подойдите к машине ближе 9 м',
-    droneDeployed: 'Дрон доставлен к вам', droneComing: 'Дрон летит к вам', droneArrived: 'Дрон сел рядом', boarded: 'Вы сели на дрон', disembarked: 'Вы сошли с дрона',
-    needLanded: 'Дрон должен стоять на земле', tooFarDrone: 'Подойдите к дрону ближе 7 м', noVehicle: 'В этой миссии нет машины', recalled: 'Доставлено к вам', recallFee: 'Плата за эвакуацию', alreadyDrone: 'Вы уже управляете дроном',
-    flName: { vehicle: 'Машина', walker: 'Космонавт', drone: 'Дрон' }, view3: 'От третьего лица', view1: 'От первого лица',
-    agl: 'Над землёй', fuel: 'Топливо', netKeys: [['Enter', 'чат'], ['Tab', 'игроки'], ['B', 'поставить метку'], ['F', 'поделиться энергией']],
-    online: 'Онлайн', onlineOn: 'Войти в общий мир (видеть других игроков)', yourName: 'Ваше имя', playersNow: n => `Сейчас онлайн: ${n}`, playersNone: 'Вы здесь первый', netOff: 'не в сети',
-    netOn: 'Онлайн', chatPh: 'Сообщение…', youJoined: n => `${n} вошёл`, youLeft: n => `${n} вышел`, pingFrom: n => `${n} поставил метку`, gaveTo: (n, a, u) => `Передано ${a} ${u} игроку ${n}`, gotFrom: (n, a, u) => `${n} передал вам ${a} ${u}`,
-    noNear: 'В радиусе 20 м никого нет', playersTitle: 'Игроки', bump: 'Столкновение', kindLabel: { rover_crew: 'ровер', rover_robot: 'робот', walker: 'астронавт', drone: 'дрон' },
-    nearAssets: 'Настоящие аппараты рядом с маршрутом', liveBadge: 'живые данные NASA', lastKnown: 'последняя известная позиция', visited: 'Посетили', sol: 'сол', windUnsafe: 'Ветер слишком сильный для полёта!', autoLand: 'Мало энергии: сажусь', hoverLeft: 'Осталось в полёте',
-    liveNote: 'Положение Perseverance и Curiosity берётся из NASA MMGIS (обновляется после каждого заезда).', noAssets: 'В 25 км от маршрута известных аппаратов нет.', ago: 'на', vsp: 'Вертикальная',
-    cloudy: 'дымка',
-  },
 };
 let lang = 'en';
-try { if (localStorage.getItem('rbe-lang') === 'ru') lang = 'ru'; } catch (e) {}
 const tr = () => L[lang];
 
 // ============================================================================= saving
@@ -118,7 +74,6 @@ let warpIdx = 2, cruiseIdx = 1;
 function loadRoute() {
   try { ROUTE = JSON.parse(localStorage.getItem('rbe-sim-route')); } catch (e) { ROUTE = null; }
   if (!ROUTE || !ROUTE.data || !ROUTE.data.points || ROUTE.data.points.length < 2) return false;
-  if (ROUTE.lang) lang = ROUTE.lang === 'ru' ? 'ru' : 'en';
   const R = ROUTE.body === 'moon' ? 1737400 : 3396190, pts = ROUTE.data.points, cum = [0];
   for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + C.Geo.dist(R, pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1]));
   routeObj = { radius: R, points: pts, cum, elevation: ROUTE.data.elevation || [[0, 0], [cum[cum.length - 1] / 1000, 0]], profile: ROUTE.profile, body: ROUTE.body };
@@ -213,8 +168,8 @@ function say(text, kind, ttl, key) {
   while (box.children.length > 4) box.removeChild(box.firstChild);
   setTimeout(() => el.remove(), ttl || 4500);
 }
-const fmtT = h => { h = Math.max(0, h); const d = Math.floor(h / 24), hh = Math.floor(h % 24), mm = Math.floor((h * 60) % 60); return (d ? d + (lang === 'ru' ? ' д ' : 'd ') : '') + String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0'); };
-const fmtKm = m => m >= 1000 ? (m / 1000).toFixed(m >= 10000 ? 0 : 1) + (lang === 'ru' ? ' км' : ' km') : Math.round(m) + (lang === 'ru' ? ' м' : ' m');
+const fmtT = h => { h = Math.max(0, h); const d = Math.floor(h / 24), hh = Math.floor(h % 24), mm = Math.floor((h * 60) % 60); return (d ? d + 'd ' : '') + String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0'); };
+const fmtKm = m => m >= 1000 ? (m / 1000).toFixed(m >= 10000 ? 0 : 1) + ' km' : Math.round(m) + ' m';
 
 // ============================================================================= launch
 function applyStatic() {
@@ -677,7 +632,7 @@ function endMission(success, why) {
   if (!running) return; running = false; persist();
   const T = tr();
   $('hud').hidden = true;
-  const msg = success ? T.ok : T.fail, why2 = why === 'destroyed' ? T.destroyed : why === 'suit' ? (lang === 'ru' ? 'Скафандр обесточен' : 'Suit power lost') : '';
+  const msg = success ? T.ok : T.fail, why2 = why === 'destroyed' ? T.destroyed : why === 'suit' ? 'Suit power lost' : '';
   const durH = simT / 3600;
   $('end').innerHTML = `<div class="panel" style="max-width:560px"><h1>${success ? '🏁' : '💥'} ${msg}</h1><div class="muted">${why2}</div>
     <div class="cols" style="margin-top:16px"><div class="card"><div class="muted">${T.driven}</div><b style="font-size:20px">${fmtKm(mission.dist)}</b></div>
@@ -701,7 +656,7 @@ function startCruise() {
   $('cruiseOv').hidden = false; $('cRv').textContent = isWalker ? '🧑‍🚀' : isDrone ? '🚁' : '🚙';
   cruiseUI();
 }
-function cruiseUI() { $('cWarp').textContent = '× ' + CRUISE[cruiseIdx].toLocaleString(lang === 'ru' ? 'ru' : 'en'); }
+function cruiseUI() { $('cWarp').textContent = '× ' + CRUISE[cruiseIdx].toLocaleString('en'); }
 function cruiseFrame(real) {
   const cr = cruise.cr, T = tr(); let h = real * CRUISE[cruiseIdx] / 3600, guard = 0;
   while (h > 1e-9 && guard++ < 12) {
