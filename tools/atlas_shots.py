@@ -1,5 +1,5 @@
 # Developed with assistance from Claude Code (Anthropic), an AI coding assistant. See SI_DISCLOSURE.md.
-"""Screenshots of the Analog Atlas for the README and the demo deck: python tools/atlas_shots.py [scene ...]
+"""Screenshots of the Far from Earth for the README and the demo deck: python tools/atlas_shots.py [scene ...]
 
 Serves docs/atlas locally, drives headless Chrome and writes JPEGs to docs/demo/img/. Scenes: shackleton, jezero,
 protonilus, marius, mobile.

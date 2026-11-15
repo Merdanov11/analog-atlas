@@ -1,6 +1,6 @@
 # Far from Earth: architecture overview (companion project)
 
-*This is the team's earlier route-planning and simulator project. It is not part of the Analog Atlas submission.*
+*This is the map and simulator part of the project. It is the map and simulator part of the project; the Earth-analog tool is described in the main README.*
 
 Code comments are mostly in Russian; this page lists the modules in English.
 

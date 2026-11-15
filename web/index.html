@@ -420,7 +420,7 @@ document.querySelectorAll('[data-ico]').forEach(el => el.insertAdjacentHTML('aft
 // ---------------------------------------------------------------- языки
 const I18N = {
   en: {
-    atlas: 'Earth analogs (Analog Atlas)', atlasBtn: '🌍 Earth analogs of this site',
+    atlas: 'Earth analogs', atlasBtn: '🌍 Earth analogs of this site',
     simDrive: '🚙 Drive this route (simulator)', presentation: 'Presentation', sources: 'Data sources & about', dataSrc: 'Data sources',
     searchPh: 'Search a crater, mountain, landing site…',
     startPh: 'Choose starting point, or click on the map', endPh: 'Choose destination, or click on the map',
@@ -463,7 +463,7 @@ const I18N = {
     usedFor: 'Used for', localFile: 'File',
   },
   ru: {
-    atlas: 'Земные аналоги (Analog Atlas)', atlasBtn: '🌍 Земные аналоги этого места',
+    atlas: 'Земные аналоги', atlasBtn: '🌍 Земные аналоги этого места',
     simDrive: '🚙 Проехать маршрут (симулятор)', presentation: 'Презентация', sources: 'Источники данных и о проекте', dataSrc: 'Источники данных',
     searchPh: 'Найти кратер, гору, место посадки…',
     startPh: 'Выберите начало или щёлкните по карте', endPh: 'Выберите пункт назначения или щёлкните по карте',
@@ -1341,7 +1341,7 @@ setInterval(() => {
   try { if (!location.hash.startsWith('#goto=')) history.replaceState(null, '', '#' + q); localStorage.setItem('rbe-map-state', JSON.stringify(o)); } catch {}
 }, 1000);
 
-// Hand-over between the map and the Analog Atlas (Earth analogs of the Moon and Mars sites).
+// Hand-over between the map and the Far from Earth (Earth analogs of the Moon and Mars sites).
 async function openAtlas() {
   let lat, lon;
   if (state.sel && state.sel.lat != null) { lat = state.sel.lat; lon = state.sel.lon; }

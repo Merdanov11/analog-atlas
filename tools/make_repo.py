@@ -1,5 +1,5 @@
 # Developed with assistance from Claude Code (Anthropic), an AI coding assistant. See SI_DISCLOSURE.md.
-"""Assemble the clean, self-contained Analog Atlas repository (only the work done for this challenge).
+"""Assemble the clean, self-contained Far from Earth repository (only the work done for this challenge).
 
 Usage:  python tools/make_repo.py --out /Users/emir/Desktop/analog-atlas [--live URL] [--repo URL]
 """

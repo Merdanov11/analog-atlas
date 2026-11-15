@@ -6,11 +6,11 @@ Everything here is in English, as the rules require. Fields follow the 2026 Proj
 
 ## Project Name
 
-Analog Atlas
+Far from Earth
 
 ## High-Level Project Summary
 
-Analog Atlas is an interactive, open tool that searches the whole Earth for places that could serve as analogs of candidate Moon-base and Mars sites. We scored about 104,000 land windows (48 km wide, covering all land between 80°N and 80°S) against 23 sites, among them Shackleton, de Gerlache and Faustini craters on the Moon and Jezero, Gale, Arcadia and Deuteronilus on Mars. "Analogous" is split into three scores the user can weight: terrain (slope, relief, roughness, compared at one common 480 m scale from NASA LOLA, MOLA and SRTM-based elevation), environment (NASA POWER temperature, precipitation, wind, UV, pressure) and ice, wind and volcanism. The map shows a similarity heat map; each result comes with a side-by-side comparison and an explicit list of what matches, what partly matches, and where the analogy breaks down (gravity, atmosphere, radiation). A switch hides places near well-known analog sites to surface less-studied leads. It helps mission planners, scientists and educators decide where to test rovers, drills and procedures on Earth before they fly.
+Far from Earth is an interactive, open tool that searches the whole Earth for places that could serve as analogs of candidate Moon-base and Mars sites. We scored about 104,000 land windows (48 km wide, covering all land between 80°N and 80°S) against 23 sites, among them Shackleton, de Gerlache and Faustini craters on the Moon and Jezero, Gale, Arcadia and Deuteronilus on Mars. "Analogous" is split into three scores the user can weight: terrain (slope, relief, roughness, compared at one common 480 m scale from NASA LOLA, MOLA and SRTM-based elevation), environment (NASA POWER temperature, precipitation, wind, UV, pressure) and ice, wind and volcanism. The map shows a similarity heat map; each result comes with a side-by-side comparison and an explicit list of what matches, what partly matches, and where the analogy breaks down (gravity, atmosphere, radiation). A switch hides places near well-known analog sites to surface less-studied leads. It helps mission planners, scientists and educators decide where to test rovers, drills and procedures on Earth before they fly.
 
 ## Link to Project Demo
 

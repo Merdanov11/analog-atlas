@@ -1,5 +1,5 @@
 # Developed with assistance from Claude Code (Anthropic), an AI coding assistant. See SI_DISCLOSURE.md.
-"""Shared helpers for the Analog Atlas pipeline.
+"""Shared helpers for the Far from Earth pipeline.
 
 Every comparison window, on the Moon, Mars or Earth, is a 48 km x 48 km square resampled to a 100 x 100 grid
 with a 480 m cell. At that scale the Mars MOLA DEM (463 m) is used as it is, the Moon LOLA DEM (118 m) is
