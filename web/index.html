@@ -970,9 +970,11 @@ async function updateLight() {
   } catch {}
 }
 const startISO = () => $('start').value ? $('start').value + ':00Z' : '';
+// Identifies exactly what a computed route belongs to, so a stale result is never used (e.g. by the simulator).
+const routeKey = () => state.a && state.b ? [state.body, state.a.lat, state.a.lng, state.b.lat, state.b.lng, $('profile').value, startISO()].join('|') : '';
 
 function resetState() {
-  state.a = state.b = null; state.req++; lines = []; mk.a = mk.b = null; stopEnts = []; state.results = null; pinEnt = null;
+  state.a = state.b = null; state.req++; lines = []; mk.a = mk.b = null; stopEnts = []; state.results = null; state.resKey = ''; pinEnt = null;
   $('result').hidden = true; setStatus(''); showPts(); syncHint();
 }
 function clearAll() {
@@ -999,7 +1001,8 @@ $('aboutClose').addEventListener('click', () => $('about').close());
 async function refresh(fit) {
   showPts();
   if (!state.a || !state.b) return;
-  const id = ++state.req;
+  const id = ++state.req, key = routeKey();
+  state.results = null; state.resKey = ''; $('simBtn').disabled = true;   // the previous route no longer matches the points
   setStatus(T().computing);
   // We compute all route types at once so they can be compared.
   const modes = [...$('mode').options].map(o => o.value);
@@ -1007,14 +1010,15 @@ async function refresh(fit) {
     const q = new URLSearchParams({ body: state.body, lat1: state.a.lat, lon1: state.a.lng,
       lat2: state.b.lat, lon2: state.b.lng, profile: $('profile').value, mode, lang });
     if (startISO()) q.set('start', startISO());
-    const r = await fetch('/api/route?' + q), data = await r.json();
+    const r = await fetch('/api/route?' + q, { cache: 'no-store' }), data = await r.json();
     return r.ok ? data : { error: typeof data.detail === 'string' ? data.detail : T().routeErr };
   };
   let all;
   try { all = await Promise.all(modes.map(one)); }
   catch { if (id === state.req) setStatus(T().noServer, true); return; }
   if (id !== state.req) return;
-  state.results = Object.fromEntries(modes.map((m, i) => [m, all[i]]));
+  state.results = Object.fromEntries(modes.map((m, i) => [m, all[i]])); state.resKey = key;
+  $('simBtn').disabled = false;
   render();
   if (fit !== false) {
     const first = state.results[$('mode').value];
@@ -1091,10 +1095,13 @@ function render() {
 // Trip simulator: the route is passed via localStorage, the game opens over the map.
 $('simBtn').addEventListener('click', () => {
   const mode = $('mode').value, d = state.results && state.results[mode]; if (!d || d.error) return;
+  if (state.resKey !== routeKey()) return;   // the points changed and the new route is still being computed
+  const rid = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   try {
-    localStorage.setItem('rbe-sim-route', JSON.stringify({ body: state.body, profile: $('profile').value, mode, start: startISO(), lang, data: d }));
+    localStorage.removeItem('rbe-sim-route');
+    localStorage.setItem('rbe-sim-route', JSON.stringify({ id: rid, body: state.body, profile: $('profile').value, mode, start: startISO(), lang, data: d }));
   } catch (e) { alert('Storage is full'); return; }
-  $('simFrame').src = '/sim.html?t=' + Date.now(); $('simWrap').hidden = false;
+  $('simFrame').src = '/sim.html?r=' + rid; $('simWrap').hidden = false;
 });
 window.addEventListener('message', e => { if (e.data && e.data.type === 'rbe-sim-close') { $('simWrap').hidden = true; $('simFrame').src = 'about:blank'; } });
 $('variants').addEventListener('click', e => {

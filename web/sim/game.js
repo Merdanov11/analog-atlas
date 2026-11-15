@@ -74,6 +74,9 @@ let warpIdx = 2, cruiseIdx = 1;
 function loadRoute() {
   try { ROUTE = JSON.parse(localStorage.getItem('rbe-sim-route')); } catch (e) { ROUTE = null; }
   if (!ROUTE || !ROUTE.data || !ROUTE.data.points || ROUTE.data.points.length < 2) return false;
+  // The map passes a route id in the page address; a different id in storage means an old route, which must not be driven.
+  const wanted = new URLSearchParams(location.search).get('r');
+  if (wanted && ROUTE.id !== wanted) return false;
   const R = ROUTE.body === 'moon' ? 1737400 : 3396190, pts = ROUTE.data.points, cum = [0];
   for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + C.Geo.dist(R, pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1]));
   routeObj = { radius: R, points: pts, cum, elevation: ROUTE.data.elevation || [[0, 0], [cum[cum.length - 1] / 1000, 0]], profile: ROUTE.profile, body: ROUTE.body };
