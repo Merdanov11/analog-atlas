@@ -1,0 +1,198 @@
+<!doctype html>
+<!-- Developed with assistance from Claude Code (Anthropic), an AI coding assistant. See SI_DISCLOSURE.md. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Routes Beyond Earth · Team Infinity · 7-slide demo</title>
+<style>
+  :root { --teal: #2dd4bf; --ink: #eef2f8; --dim: #9aa6bd; --mars: #ff8a3d; --line: #ffffff2a; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { background: #05070c; color: var(--ink); font-family: "Helvetica Neue", "Segoe UI", system-ui, Roboto, Arial, sans-serif; }
+  @page { size: 1920px 1080px; margin: 0; }
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .deck { display: grid; gap: 24px; justify-content: center; padding: 24px 0; }
+  .fit { position: relative; width: calc(1920px * var(--s, 1)); height: calc(1080px * var(--s, 1)); }
+  .slide { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; transform-origin: 0 0; transform: scale(var(--s, 1));
+           background: radial-gradient(ellipse at 20% 0%, #10202b 0%, #070a10 55%, #04060a 100%); padding: 84px 110px 72px; display: flex; flex-direction: column; }
+  @media print { .deck { display: block; padding: 0; gap: 0; } .fit { width: 1920px; height: 1080px; page-break-after: always; break-after: page; }
+                 .slide { transform: none; } html, body { background: #05070c; } }
+  .eyebrow { font-size: 26px; letter-spacing: .38em; text-transform: uppercase; color: var(--dim); }
+  h1 { font-weight: 200; font-size: 128px; letter-spacing: .1em; line-height: 1.02; text-transform: uppercase; }
+  h2 { font-weight: 300; font-size: 76px; line-height: 1.08; letter-spacing: .01em; margin-top: 18px; }
+  h2 b { font-weight: 600; color: var(--mars); } h2 .t, .t { color: var(--teal); font-weight: 600; }
+  p, li { font-size: 34px; line-height: 1.42; color: #d3dae8; font-weight: 300; }
+  .small { font-size: 26px; color: var(--dim); }
+  .row { display: grid; gap: 56px; flex: 1; min-height: 0; margin-top: 36px; align-items: center; }
+  .frame { position: relative; border-radius: 22px; overflow: hidden; border: 1px solid #ffffff33; background: #000; box-shadow: 0 30px 80px #000c; }
+  .frame img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .cap { position: absolute; left: 18px; bottom: 16px; padding: 8px 20px; border-radius: 999px; background: #070b14d9; border: 1px solid #ffffff2a; font-size: 24px; letter-spacing: .06em; color: #e4ecf8; }
+  .cap b { color: var(--teal); font-weight: 600; }
+  ul { list-style: none; padding: 0; display: grid; gap: 20px; }
+  li { padding-left: 46px; position: relative; } li::before { content: ""; position: absolute; left: 6px; top: .62em; width: 16px; height: 16px; border-radius: 50%; background: var(--mars); }
+  li b { color: var(--ink); font-weight: 500; }
+  .chips { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 22px; }
+  .chips span { font-size: 26px; border: 1px solid #2dd4bf77; color: var(--teal); background: #2dd4bf14; border-radius: 999px; padding: 6px 22px; }
+  .chips span.m { border-color: #ff8a3d77; color: var(--mars); background: #ff8a3d14; }
+  .cards { display: grid; gap: 28px; }
+  .card { border: 1px solid var(--line); border-radius: 20px; padding: 30px 34px; background: #0b111b; }
+  .card h3 { font-weight: 400; font-size: 38px; margin-bottom: 10px; }
+  .card .n { font-weight: 200; font-size: 86px; line-height: 1; }
+  .card .n small { font-size: 30px; color: var(--dim); margin-left: 10px; letter-spacing: .06em; }
+  .card p { font-size: 29px; }
+  .stripe { display: flex; gap: 70px; margin-top: 8px; }
+  .stripe .n { font-weight: 200; font-size: 84px; line-height: 1; } .stripe p { font-size: 26px; color: var(--dim); }
+  .flow { display: flex; align-items: stretch; gap: 18px; margin-top: 26px; }
+  .flow .st { flex: 1; border: 1px solid var(--line); border-radius: 18px; padding: 22px 24px; background: #0b111b; }
+  .flow .st i { font-style: normal; color: var(--mars); font-size: 24px; letter-spacing: .2em; }
+  .flow .st b { display: block; font-size: 38px; font-weight: 400; margin: 6px 0 4px; }
+  .flow .st span { font-size: 24px; color: var(--dim); line-height: 1.35; display: block; }
+  .flow .ar { font-size: 44px; color: var(--dim); align-self: center; }
+  .foot { margin-top: auto; padding-top: 18px; display: flex; justify-content: space-between; font-size: 22px; letter-spacing: .14em; text-transform: uppercase; color: #ffffff77; }
+  /* slide 1 */
+  .s1 { padding: 0; }
+  .s1 .bg { position: absolute; inset: 0; } .s1 .bg img { width: 100%; height: 100%; object-fit: cover; }
+  .s1 .bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, #000f 0%, #000d 38%, #0005 70%, #0002 100%), linear-gradient(0deg, #000d 0%, #0000 40%); }
+  .s1 .in { position: relative; padding: 130px 130px 90px; display: flex; flex-direction: column; height: 100%; }
+  .s1 .meta { margin-top: auto; display: grid; gap: 10px; }
+  .s1 .meta p { font-size: 32px; color: #e8eef8; } .s1 .meta b { color: var(--teal); font-weight: 500; letter-spacing: .12em; text-transform: uppercase; font-size: 24px; display: inline-block; width: 220px; }
+  .tag { font-size: 54px; font-weight: 300; margin-top: 30px; } .tag span { color: var(--teal); }
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+<!-- 1. Title -->
+<div class="fit"><section class="slide s1">
+  <div class="bg"><img src="../../../web/img/sim_mars_rover_clean.jpg" alt=""></div>
+  <div class="in">
+    <div class="eyebrow">NASA Space Apps Challenge 2026</div>
+    <h1 style="margin-top:34px">Routes<br>Beyond Earth</h1>
+    <div class="tag">Plan it. <span>See it.</span> Drive it. Together.</div>
+    <div class="meta">
+      <p><b>Team</b>Team Infinity</p>
+      <p><b>Members</b>{{MEMBERS}}</p>
+      <p><b>Challenge</b>Interplanetary Survival Guide: Martian Map</p>
+    </div>
+  </div>
+</section></div>
+
+<!-- 2. The gap / introduction -->
+<div class="fit"><section class="slide">
+  <div class="eyebrow">The gap</div>
+  <h2>Astronauts on Mars will need a map<br>that works at <b>the scale of one walk</b></h2>
+  <div class="row" style="grid-template-columns: 1fr 1fr; align-items:start; margin-top:24px">
+    <ul style="gap:14px">
+      <li style="font-size:31px">Global tools show Mars at <b>regional scale</b>. A crew needs a route, conditions and safety data for <b>this</b> traverse.</li>
+      <li style="font-size:31px">NASA already has the data: <b>topography, thermal, dust, minerals, live rover positions</b>. It is rarely layered together.</li>
+      <li style="font-size:31px">Explorers also need to know <b>what the ground will feel like</b> before they step out.</li>
+    </ul>
+    <div>
+      <p style="color:var(--ink);font-size:38px;font-weight:400">Our answer: one open tool that layers NASA data, plans the route and lets the crew rehearse it.</p>
+      <div class="chips"><span>MGS MOLA</span><span>Mars Odyssey THEMIS</span><span>MGS TES</span><span>Viking</span><span>NASA/JPL MMGIS</span><span class="m">Open source · Apache-2.0</span></div>
+    </div>
+  </div>
+  <div class="flow">
+    <div class="st"><i>01</i><b>Layer</b><span>7 NASA layers on one map</span></div><div class="ar">›</div>
+    <div class="st"><i>02</i><b>Plan</b><span>3 routes for 4 travellers</span></div><div class="ar">›</div>
+    <div class="st"><i>03</i><b>Brief</b><span>time, energy, heat, radiation</span></div><div class="ar">›</div>
+    <div class="st"><i>04</i><b>Drive</b><span>physics simulator on real terrain</span></div><div class="ar">›</div>
+    <div class="st"><i>05</i><b>Share</b><span>live NASA rovers, multiplayer</span></div>
+  </div>
+  <div class="foot"><span>Team Infinity</span><span>2 / 7</span></div>
+</section></div>
+
+<!-- 3. Layered map -->
+<div class="fit"><section class="slide">
+  <div class="eyebrow">Layer</div>
+  <h2>One map, <b>six kinds of NASA data</b></h2>
+  <div class="row" style="grid-template-columns: 1.9fr 1fr">
+    <div class="frame" style="aspect-ratio:16/9"><img src="../../../web/img/map_layers.jpg" alt=""><div class="cap">Gale → Jezero · <b>THEMIS thermal IR</b> over Viking imagery</div></div>
+    <div>
+      <ul style="gap:14px">
+        <li style="font-size:30px"><b>Optical:</b> Viking MDIM, TES albedo</li>
+        <li style="font-size:30px"><b>Topographic:</b> MOLA elevation, roughness</li>
+        <li style="font-size:30px"><b>Thermal:</b> THEMIS day / night infrared</li>
+        <li style="font-size:30px"><b>Geophysical:</b> TES thermal inertia</li>
+        <li style="font-size:30px"><b>Atmospheric:</b> TES dust cover</li>
+        <li style="font-size:30px"><b>Spectral:</b> TES pyroxene mineralogy</li>
+      </ul>
+      <p class="small" style="margin-top:22px">Blend any layer with an opacity slider. Live Perseverance and Curiosity positions come from NASA/JPL MMGIS.</p>
+    </div>
+  </div>
+  <div class="foot"><span>Data: NASA / JPL Solar System Treks · USGS · IAU names</span><span>3 / 7</span></div>
+</section></div>
+
+<!-- 4. Route briefing -->
+<div class="fit"><section class="slide">
+  <div class="eyebrow">Plan and brief</div>
+  <h2>A route for a <b>person in a spacesuit</b>, and for the machines that help</h2>
+  <div class="cards" style="grid-template-columns: repeat(4, 1fr); margin-top:40px">
+    <div class="card"><h3>On foot</h3><div class="n">25°<small>max slope</small></div><p style="margin-top:12px">3 km/h, 7-hour shifts, daylight only</p></div>
+    <div class="card"><h3>Crewed rover</h3><div class="n">20°<small>max slope</small></div><p style="margin-top:12px">10 km/h, battery and solar panels</p></div>
+    <div class="card"><h3>Robotic rover</h3><div class="n">15°<small>max slope</small></div><p style="margin-top:12px">0.15 km/h, scouts ahead</p></div>
+    <div class="card" style="border-color:#2dd4bf88"><h3>Drone</h3><div class="n t">∞<small>max slope</small></div><p style="margin-top:12px">7-minute flights, then recharge</p></div>
+  </div>
+  <div class="row" style="grid-template-columns: 1.2fr 1fr; margin-top:44px; align-items:start">
+    <div>
+      <p style="color:var(--ink);font-size:36px;font-weight:400">Every route arrives with a trip plan:</p>
+      <div class="chips"><span>time and energy</span><span>ascent / descent</span><span>steepest slope</span><span>temperature range</span><span>radiation dose</span><span>dust-storm risk</span><span>daylight shifts and rests</span></div>
+    </div>
+    <div class="stripe"><div><div class="n">3</div><p>route types: fastest, safest, most efficient</p></div><div><div class="n">3,965<small style="font-size:30px;color:var(--dim)"> km</small></div><p>Gale → Jezero, computed in about 6 s</p></div></div>
+  </div>
+  <div class="foot"><span>Environment figures are simplified models built on published NASA measurements</span><span>4 / 7</span></div>
+</section></div>
+
+<!-- 5. Simulator -->
+<div class="fit"><section class="slide">
+  <div class="eyebrow">Drive</div>
+  <h2>See the route <b>before you walk it</b></h2>
+  <div class="row" style="grid-template-columns: 1fr 1fr 1.05fr">
+    <div class="frame" style="height:520px"><img src="../../../web/img/sim_astronaut_mars_clean.jpg" alt=""><div class="cap">Astronaut on foot · <b>third person</b></div></div>
+    <div class="frame" style="height:520px"><img src="../../../web/img/sim_mars_rover.jpg" alt=""><div class="cap">Rover · <b>battery, slope, weather</b></div></div>
+    <ul style="gap:16px">
+      <li style="font-size:29px"><b>Real MOLA terrain</b> refined to a 4 m grid, with craters and rocks</li>
+      <li style="font-size:29px"><b>Soil physics:</b> wheel sinkage, thrust, suspension, 100 Hz</li>
+      <li style="font-size:29px"><b>Leave the rover,</b> walk, call a drone, switch control</li>
+      <li style="font-size:29px"><b>61 automated checks</b> pass; rollovers cut from 21 to 0 in 40 random drives</li>
+    </ul>
+  </div>
+  <div class="foot"><span>Terrain below the 463 m DEM resolution is a labelled statistical model</span><span>5 / 7</span></div>
+</section></div>
+
+<!-- 6. Live and shared -->
+<div class="fit"><section class="slide">
+  <div class="eyebrow">Share</div>
+  <h2>A <b>live, shared Mars</b> with the real rovers</h2>
+  <div class="row" style="grid-template-columns: 1.15fr 1fr .5fr">
+    <div class="frame" style="height:560px"><img src="../../../web/img/sim_multiplayer.jpg" alt=""><div class="cap">Drone and rover pilots · <b>live Curiosity</b></div></div>
+    <div class="frame" style="height:560px"><img src="../../../web/img/map_live.jpg" alt=""><div class="cap">Perseverance · sol 2022 · <b>LIVE</b></div></div>
+    <div class="frame" style="height:560px"><img src="../../../web/img/mobile_hud_mars.jpg" alt="" style="object-position:50% 45%"></div>
+  </div>
+  <div class="chips" style="margin-top:30px"><span>chat and map pings</span><span>energy sharing</span><span>collisions</span><span>NASA/JPL MMGIS positions</span><span>works on phones</span></div>
+  <p class="small" style="margin-top:14px">Positions update after each rover drive (NASA publishes waypoints, not a continuous stream). No open feed exists for lunar vehicles or Ingenuity, so those are not shown as live.</p>
+  <div class="foot"><span>Server relays state at 10 Hz · each client simulates its own physics</span><span>6 / 7</span></div>
+</section></div>
+
+<!-- 7. Impact -->
+<div class="fit"><section class="slide">
+  <div class="eyebrow">Impact and next steps</div>
+  <h2>Open, honest, and ready <b>to grow</b></h2>
+  <div class="row" style="grid-template-columns: 1fr 1fr 1fr; align-items:start">
+    <div class="card"><h3>Impact</h3><p>A free planning and rehearsal tool for mission planners, educators and the public. The same engine already covers the Moon for Artemis-era traverses.</p></div>
+    <div class="card"><h3>Honest limits</h3><p>Route grid 926 m. Fine terrain, temperature, radiation and storms are models, labelled as such. The lunar rocket hopper is a concept.</p></div>
+    <div class="card"><h3>Next</h3><p>Sample every layer along the route, add HiRISE and CTX close-ups at the destination, co-op missions with roles, replay of real rover traverses.</p></div>
+  </div>
+  <div class="stripe" style="margin-top:36px;gap:90px"><div><div class="n">7</div><p>NASA science layers</p></div><div><div class="n">3</div><p>route types, 4 travellers</p></div><div><div class="n">100 <small style="font-size:30px;color:var(--dim)">Hz</small></div><p>wheel-soil physics</p></div><div><div class="n">61</div><p>automated checks pass</p></div><div><div class="n">2</div><p>worlds: Mars and the Moon</p></div></div>
+  <div class="chips" style="margin-top:34px"><span class="m">Code and docs: Apache-2.0</span><span>{{REPO}}</span><span>Built with AI assistance (Claude Code): see SI_DISCLOSURE.md</span></div>
+  <p class="small" style="margin-top:22px">Sources: NASA MGS MOLA and USGS Astrogeology; Mars Odyssey THEMIS and MGS TES via NASA Solar System Treks; Viking MDIM; NASA/JPL-Caltech MMGIS; NASA NSSDCA; IAU Gazetteer of Planetary Nomenclature. Full list with licences in the README.</p>
+  <div class="foot"><span>Team Infinity · Interplanetary Survival Guide: Martian Map</span><span>7 / 7</span></div>
+</section></div>
+
+</div>
+<script>
+  function fit() { const s = Math.min(1, (innerWidth - 24) / 1920); document.documentElement.style.setProperty('--s', s); }
+  addEventListener('resize', fit); fit();
+</script>
+</body>
+</html>

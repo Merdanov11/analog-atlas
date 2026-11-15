@@ -3,3 +3,5 @@ scipy
 rasterio
 pillow
 websockets
+fastapi
+uvicorn

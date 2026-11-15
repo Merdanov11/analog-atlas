@@ -1,0 +1,1375 @@
+<!doctype html>
+<!-- Developed with assistance from Claude Code (Anthropic), an AI coding assistant. See SI_DISCLOSURE.md. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Routes Beyond Earth</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cesium/1.135.0/Widgets/widgets.min.css">
+<style>
+  :root {
+    --bg: rgba(14,22,40,.92); --solid: #0f1830; --text: #e8eefb; --muted: #94a3c0; --line: #24324d; --hover: #1a2744;
+    --blue: #2dd4bf; --blue-bg: #12353a; --red: #ff7a59; --green: #86efac; --accent2: #ffb020;
+    --shadow: 0 10px 30px rgba(0,0,0,.5), 0 0 0 1px rgba(130,160,220,.14);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body { background: #000; color: var(--text);
+         font: 14px/1.45 Roboto, "Google Sans", system-ui, -apple-system, "Segoe UI", sans-serif; }
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  button { font: inherit; color: inherit; }
+  [hidden] { display: none !important; }
+  svg.i { width: 24px; height: 24px; fill: currentColor; flex: none; display: block; }
+  #map { position: fixed; inset: 0; background: #000; }
+
+  /* ---- карточки и кнопки ---- */
+  .card { background: var(--bg); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-radius: 16px; box-shadow: var(--shadow); pointer-events: auto; }
+  .ib { width: 40px; height: 40px; border-radius: 50%; border: 0; background: transparent; color: var(--muted);
+        display: grid; place-items: center; cursor: pointer; flex: none; padding: 0; }
+  .ib:hover { background: var(--hover); }
+  .ib.blue { color: var(--blue); }
+  .pill { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 16px; border-radius: 18px;
+          border: 1px solid var(--line); background: var(--bg); color: var(--blue); font-weight: 500; cursor: pointer; }
+  .pill:hover { background: var(--hover); }
+  .pill.fill { background: var(--blue); border-color: var(--blue); color: #04201c; }
+  .pill.fill:hover { background: #5eead4; }
+  .pill svg.i { width: 18px; height: 18px; }
+
+  /* ---- левая колонка ---- */
+  #panel { position: fixed; top: 12px; left: 12px; width: 392px; max-height: calc(100% - 24px);
+           display: flex; flex-direction: column; gap: 10px; overflow-y: auto; overflow-x: hidden;
+           pointer-events: none; padding: 2px 4px 4px 2px; scrollbar-width: thin; z-index: 5; }
+  #searchCard { display: flex; align-items: center; gap: 2px; padding: 4px 6px; min-height: 48px; flex: none; }
+  .sfield { position: relative; flex: 1; min-width: 0; }
+  .sfield input { width: 100%; border: 0; outline: 0; background: transparent; font: inherit; font-size: 15px;
+                  color: var(--text); padding: 8px 6px; }
+  .sfield input::placeholder { color: #6b7a99; }
+  input[type=search]::-webkit-search-cancel-button { display: none; }
+  .vsep { width: 1px; height: 28px; background: var(--line); margin: 0 4px; flex: none; }
+  .sugg { position: fixed; z-index: 30; margin: 0; padding: 6px 0; max-height: 60vh; overflow-y: auto;
+          list-style: none; background: var(--bg); border-radius: 10px; box-shadow: var(--shadow); display: none; }
+  .sugg li { padding: 8px 16px; cursor: pointer; display: flex; gap: 12px; align-items: center; }
+  .sugg li:hover, .sugg li.act { background: var(--hover); }
+  .sugg li svg.i { color: var(--muted); width: 20px; height: 20px; }
+  .sugg li b { font-weight: 500; }
+  .sugg li small { color: var(--muted); margin-left: auto; font-size: 12px; white-space: nowrap; }
+
+  #atlasBtn { position: fixed; left: 50%; transform: translateX(-50%); bottom: 44px; z-index: 5; padding: 10px 18px; border-radius: 999px; border: 1px solid #2dd4bf; background: #0e1a24ee; color: #bff7ee; font: inherit; font-size: 14px; cursor: pointer; box-shadow: var(--shadow); }
+  #atlasBtn:hover { background: #12303a; }
+  @media (max-width: 760px) { #atlasBtn { bottom: 112px; font-size: 13px; } }
+  #menu { position: fixed; top: 64px; left: 16px; width: 280px; padding: 8px 0; z-index: 40; display: none; }
+  #menu a, #menu button { display: flex; align-items: center; gap: 16px; width: 100%; padding: 11px 20px; border: 0;
+        background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; text-decoration: none; }
+  #menu a:hover, #menu button:hover { background: var(--hover); }
+  #menu svg.i { color: var(--muted); }
+
+  /* ---- карточка маршрута ---- */
+  #dirCard { padding: 8px 12px 14px; flex: none; }
+  .dtop { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
+  #profSeg { display: flex; gap: 4px; flex: 1; }
+  #profSeg button { flex: 1; height: 40px; border: 0; border-radius: 20px; background: transparent;
+                    color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+  #profSeg button:hover { background: var(--hover); }
+  #profSeg button.on { background: var(--blue-bg); color: var(--blue); }
+  #profCap { color: var(--muted); font-size: 12px; margin: 0 6px 8px; }
+  .inputs { display: flex; align-items: center; gap: 4px; }
+  .dots { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 22px; flex: none; }
+  .dots i { display: block; border-radius: 50%; }
+  .dots .o { width: 12px; height: 12px; border: 3px solid var(--blue); }
+  .dots .v { width: 3px; height: 3px; background: #5b6b8c; }
+  .dots .p { width: 12px; height: 12px; background: var(--red); }
+  .fields { flex: 1; min-width: 0; display: grid; gap: 8px; }
+  .fields .sfield { border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+  .fields .sfield:focus-within { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
+  .fields .sfield input { font-size: 14px; padding: 9px 10px; }
+  .depart { display: flex; align-items: center; gap: 8px; margin: 12px 6px 0; color: var(--muted); font-size: 12px; }
+  .depart input { flex: 1; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font: inherit;
+                  color: var(--text); background: var(--solid); color-scheme: dark; min-width: 0; }
+  #dirHint { color: var(--muted); font-size: 13px; margin: 10px 6px 0; }
+  #status { color: var(--muted); font-size: 12px; margin: 8px 6px 0; }
+  #status.err { color: var(--red); }
+  #status:empty { display: none; }
+
+  /* ---- карточка места ---- */
+  #card { padding: 0 0 8px; overflow: hidden; flex: none; position: relative; }
+  #card .banner { height: 88px; background: linear-gradient(135deg, #1b2540, #34416a); }
+  #card .banner.mars { background: linear-gradient(135deg, #7b3f26, #c1673c 55%, #e0a070); }
+  #card .banner.moon { background: linear-gradient(135deg, #4a4a4a, #8d8d8d 55%, #c8c8c8); }
+  #card .x { position: absolute; top: 8px; right: 8px; background: #0b1220cc; }
+  #card h3 { margin: 14px 18px 0; font-size: 22px; font-weight: 400; line-height: 1.25; }
+  #card .sub { margin: 2px 18px 0; color: var(--muted); font-size: 14px; }
+  #card .acts { display: flex; gap: 8px; margin: 14px 18px 6px; flex-wrap: wrap; }
+  #card .info { margin: 6px 0 0; border-top: 1px solid var(--line); }
+  #card .irow { display: flex; gap: 18px; align-items: flex-start; padding: 11px 18px; font-size: 14px; }
+  #card .irow svg.i { color: var(--blue); width: 20px; height: 20px; margin-top: 1px; }
+  #card .irow .t { min-width: 0; overflow-wrap: anywhere; }
+
+  /* ---- результат ---- */
+  #result { padding: 4px 0 12px; flex: none; }
+  #variants { display: grid; }
+  #variants button { display: flex; align-items: center; gap: 12px; text-align: left; background: transparent; border: 0;
+        border-left: 4px solid transparent; padding: 12px 16px 12px 14px; cursor: pointer; width: 100%;
+        font-variant-numeric: tabular-nums; }
+  #variants button + button { border-top: 1px solid var(--line); }
+  #variants button:hover { background: var(--hover); }
+  #variants button.on { background: var(--blue-bg); border-left-color: var(--blue); }
+  #variants .vt { font-size: 18px; color: var(--green); flex: 1; min-width: 0; }
+  #variants .vt span { display: block; font-size: 13px; color: var(--muted); }
+  #variants .vd { font-size: 15px; color: var(--muted); }
+  #variants button[disabled] { opacity: .55; cursor: default; }
+  .sect { padding: 4px 16px 0; }
+  .sect > h2 { font-size: 13px; margin: 18px 0 10px; color: var(--muted); text-transform: uppercase;
+               letter-spacing: .6px; font-weight: 500; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 12px; }
+  .stat { background: var(--hover); border-radius: 8px; padding: 8px 10px; }
+  .stat b { display: block; font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .stat span { color: var(--muted); font-size: 12px; line-height: 1.2; display: block; }
+  #chart, #tchart { width: 100%; height: 110px; margin-top: 12px; display: block; }
+  #note, .cap2 { color: var(--muted); font-size: 12px; margin-top: 10px; }
+  #planWarn { color: var(--red); font-size: 13px; margin-top: 10px; }
+  #stops { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 6px; }
+  #stops li { display: flex; gap: 8px; align-items: baseline; font-size: 13px; }
+  #stops i { width: 9px; height: 9px; border-radius: 50%; flex: none; display: inline-block; }
+  #stops span { color: var(--muted); margin-left: auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #risks { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+  #risks li { font-size: 13px; color: var(--muted); }
+  #risks b { color: var(--text); font-weight: 500; margin-right: 6px; }
+  .lvl { font-size: 11px; padding: 1px 8px; border-radius: 999px; font-weight: 500; white-space: nowrap; }
+  .lvl.low { background: #12392b; color: #86efac; }
+  .lvl.mid { background: #3a2f10; color: #fcd34d; }
+  .lvl.high { background: #3d1a1a; color: #ff8a80; }
+
+  /* ---- чипы сверху ---- */
+  #simWrap { position: fixed; inset: 0; z-index: 100; background: #000; }
+  #simWrap iframe { width: 100%; height: 100%; border: 0; display: block; }
+  #chips { position: fixed; top: 12px; left: 420px; display: flex; gap: 8px; z-index: 4; align-items: center; }
+  .chipgroup { display: flex; gap: 8px; }
+  .chip { height: 36px; padding: 0 14px; border: 0; border-radius: 18px; background: var(--bg); box-shadow: var(--shadow);
+          cursor: pointer; display: inline-flex; align-items: center; gap: 8px; color: var(--text); white-space: nowrap; }
+  .chip:hover { background: var(--hover); }
+  .chip.on { background: var(--blue-bg); color: var(--blue); box-shadow: 0 0 0 1px var(--blue), var(--shadow); }
+  .chip .pl { width: 14px; height: 14px; border-radius: 50%; }
+  .chip .pl.mars { background: radial-gradient(circle at 35% 30%, #e8a070, #a8502c); }
+  .chip .pl.moon { background: radial-gradient(circle at 35% 30%, #eee, #8a8a8a); }
+  #langSeg { position: fixed; top: 12px; right: 12px; z-index: 4; display: flex; border-radius: 18px; overflow: hidden;
+             background: var(--bg); box-shadow: var(--shadow); }
+  #langSeg button { border: 0; background: transparent; padding: 0 14px; height: 36px; cursor: pointer; color: var(--muted); }
+  #langSeg button.on { background: var(--blue-bg); color: var(--blue); font-weight: 500; }
+
+  /* ---- слои, управление, подвал ---- */
+  #layerBtn { position: fixed; left: 12px; bottom: 34px; width: 66px; height: 66px; z-index: 4; border-radius: 10px;
+              border: 2px solid #2dd4bf66; box-shadow: var(--shadow); cursor: pointer; padding: 0; overflow: hidden;
+              color: #fff; background: var(--tile); font-size: 11px; font-weight: 500; display: flex;
+              flex-direction: column; justify-content: flex-end; align-items: stretch; }
+  #layerBtn span { background: linear-gradient(transparent, #000b); padding: 14px 4px 3px; text-align: center; }
+  #layerPop { position: fixed; left: 12px; bottom: 110px; width: 300px; padding: 14px 16px 12px; z-index: 6; display: none; }
+  #layerPop h4 { margin: 0 0 8px; font-size: 12px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .tiles { display: flex; gap: 12px; margin-bottom: 14px; }
+  .tiles button { flex: 1; border: 0; background: none; cursor: pointer; padding: 0; color: var(--text); font-size: 12px; }
+  .tiles .th { display: block; height: 54px; border-radius: 8px; margin-bottom: 4px; border: 2px solid transparent;
+               background: var(--tile); }
+  .tiles button.on .th { border-color: var(--blue); }
+  .tiles button.on { color: var(--blue); font-weight: 500; }
+  #layerPop label { display: flex; gap: 12px; align-items: center; padding: 7px 0; cursor: pointer; }
+  #layerPop input { width: 16px; height: 16px; accent-color: var(--blue); }
+  #ovList { display: grid; gap: 1px; margin: 0 -6px 4px; max-height: 210px; overflow: auto; }
+  #ovList button { text-align: left; border: 0; background: none; color: var(--text); cursor: pointer; padding: 6px 8px; border-radius: 8px; font: inherit; font-size: 13px; display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+  #ovList button:hover { background: #ffffff10; }
+  #ovList button.on { background: #2dd4bf22; color: var(--blue); font-weight: 500; }
+  #ovList small { color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px; white-space: nowrap; }
+  #ovAlphaRow { display: flex; gap: 10px; align-items: center; font-size: 12px; color: var(--muted); padding: 0 2px 8px; }
+  #ovAlphaRow input { flex: 1; width: auto; height: auto; }
+  #ctrls { position: fixed; right: 12px; bottom: 34px; z-index: 4; display: grid; gap: 10px; justify-items: end; }
+  #ctrls .grp { display: grid; background: var(--bg); border-radius: 8px; box-shadow: var(--shadow); overflow: hidden; }
+  #ctrls .grp button { width: 40px; height: 40px; border: 0; background: transparent; color: var(--muted); cursor: pointer;
+                       display: grid; place-items: center; }
+  #ctrls .grp button:hover { background: var(--hover); }
+  #ctrls .grp button + button { border-top: 1px solid var(--line); }
+  #view3d { font-weight: 600; font-size: 13px; }
+  #foot { position: fixed; right: 0; bottom: 0; z-index: 4; background: #0b1220cc; padding: 1px 8px; font-size: 11px;
+          color: #94a3c0; display: flex; gap: 8px; align-items: center; max-width: 100%; flex-wrap: wrap; justify-content: flex-end; }
+  #foot button { border: 0; background: none; color: #94a3c0; text-decoration: underline; cursor: pointer; padding: 0; font-size: 11px; }
+  #foot .cesium-widget-credits { position: static !important; display: inline-flex; align-items: center; gap: 8px;
+                                 padding: 0 !important; background: none !important; font-size: 11px; }
+  #foot .cesium-credit-logoContainer { display: inline-flex !important; }
+  #foot .cesium-credit-textContainer { display: inline !important; }
+  #foot .cesium-credit-logoContainer img { height: 14px; vertical-align: middle; }
+  #foot .cesium-credit-textContainer, #credits { color: #94a3c0; }
+  #credits a { color: #94a3c0; }
+  #cursor { font-variant-numeric: tabular-nums; }
+
+  /* ---- окно «Источники» ---- */
+  dialog { background: var(--solid); color: var(--text); border: 0; border-radius: 14px; box-shadow: 0 12px 48px #0006;
+           max-width: 760px; width: calc(100% - 32px); max-height: 88vh; padding: 0; }
+  dialog::backdrop { background: #0009; }
+  dialog .in { padding: 22px 26px; overflow-y: auto; max-height: 88vh; }
+  dialog h2 { margin: 0 0 8px; font-size: 22px; font-weight: 400; }
+  dialog h3 { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin: 22px 0 8px; font-weight: 500; }
+  dialog li { margin: 6px 0; font-size: 13px; }
+  dialog p { font-size: 13px; color: var(--muted); margin: 6px 0; }
+  .ds { border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; margin: 8px 0; }
+  .ds .h { display: flex; gap: 8px; align-items: center; font-weight: 500; font-size: 14px; }
+  .ds .h .b { margin-left: auto; font-size: 11px; font-weight: 500; padding: 1px 9px; border-radius: 999px;
+              background: var(--blue-bg); color: var(--blue); white-space: nowrap; }
+  .ds .h .b.nasa { background: #3d1f14; color: #ffa070; }
+  .ds p { margin: 4px 0 0; }
+  .ds code { background: var(--hover); border-radius: 4px; padding: 1px 5px; font-size: 11.5px; overflow-wrap: anywhere; }
+  .ds .c { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  @media (max-width: 560px) { #sitesChip span, #onlineChip { display: none; } .chip { padding: 0 11px; } #chips { gap: 6px; } #simBtn { height: 46px !important; } #panel { max-height: 76vh; } .ib { width: 44px; height: 44px; } }
+  @media (max-width: 760px) {
+    #panel { right: 8px; left: 8px; width: auto; top: 8px; max-height: 58vh; }
+    #chips { top: auto; bottom: 108px; left: 8px; }
+    #langSeg { top: auto; bottom: 34px; right: 64px; }
+    #langSeg button { height: 32px; }
+    #layerBtn { left: 8px; }
+    #ctrls { right: 8px; }
+    #menu { left: 12px; top: 60px; }
+    .stats { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div id="panel">
+  <div class="card" id="searchCard">
+    <button class="ib" id="menuBtn" data-ico="menu" data-title="menu"></button>
+    <div class="sfield">
+      <input type="search" id="search" autocomplete="off" spellcheck="false">
+      <ul class="sugg" id="found"></ul>
+    </div>
+    <button class="ib" id="clearSearch" data-ico="close" data-title="clear" hidden></button>
+    <span class="vsep"></span>
+    <button class="ib blue" id="dirBtn" data-ico="directions" data-title="dirs"></button>
+  </div>
+
+  <div class="card" id="dirCard" hidden>
+    <div class="dtop">
+      <button class="ib" id="dirClose" data-ico="back" data-title="back"></button>
+      <div id="profSeg"></div>
+      <button class="ib" id="dirX" data-ico="close" data-title="back"></button>
+    </div>
+    <div id="profCap"></div>
+    <div class="inputs">
+      <div class="dots"><i class="o"></i><i class="v"></i><i class="v"></i><i class="v"></i><i class="p"></i></div>
+      <div class="fields">
+        <div class="sfield"><input type="search" id="inA" autocomplete="off" spellcheck="false"><ul class="sugg" id="foundA"></ul></div>
+        <div class="sfield"><input type="search" id="inB" autocomplete="off" spellcheck="false"><ul class="sugg" id="foundB"></ul></div>
+      </div>
+      <button class="ib" id="swap" data-ico="swap" data-title="swap"></button>
+    </div>
+    <div class="depart"><span data-i18n="departAt"></span><input type="datetime-local" id="start"></div>
+    <div id="dirHint"></div>
+    <div id="status"></div>
+    <select id="profile" hidden></select>
+    <select id="mode" hidden></select>
+  </div>
+
+  <div class="card" id="card" hidden>
+    <div class="banner" id="cBanner"></div>
+    <button class="ib x" id="cClose" data-ico="close" data-title="close"></button>
+    <h3 id="cName"></h3>
+    <div class="sub" id="cMeta"></div>
+    <div class="acts">
+      <button class="pill fill" id="cTo" data-ico="directions"><span data-i18n="dirs"></span></button>
+      <button class="pill" id="cFrom" data-ico="pin"><span data-i18n="fromHere"></span></button>
+    </div>
+    <div class="info" id="cInfo"></div>
+  </div>
+
+  <div class="card" id="result" hidden>
+    <div id="variants"></div>
+    <div class="sect" style="padding-top:12px"><button class="pill fill" id="simBtn" style="width:100%;justify-content:center;height:42px"><span data-i18n="simDrive"></span></button></div>
+    <div class="sect">
+      <h2 data-i18n="details"></h2>
+      <div class="stats">
+        <div class="stat"><b id="sDist"></b><span data-i18n="sDist"></span></div>
+        <div class="stat"><b id="sTime"></b><span data-i18n="sTime"></span></div>
+        <div class="stat"><b id="sEnergy"></b><span data-i18n="sEnergy"></span></div>
+        <div class="stat"><b id="sUp"></b><span data-i18n="sUp"></span></div>
+        <div class="stat"><b id="sDown"></b><span data-i18n="sDown"></span></div>
+        <div class="stat"><b id="sSlope"></b><span data-i18n="sSlope"></span></div>
+      </div>
+      <div class="cap2" data-i18n="elevProfile"></div>
+      <svg id="chart" viewBox="0 0 300 110" preserveAspectRatio="none"></svg>
+      <div id="note"></div>
+    </div>
+    <div class="sect" id="plan">
+      <h2 data-i18n="tripPlan"></h2>
+      <div class="stats">
+        <div class="stat"><b id="pTotal"></b><span data-i18n="pTotal"></span></div>
+        <div class="stat"><b id="pArr"></b><span data-i18n="pArr"></span></div>
+        <div class="stat"><b id="pTemp"></b><span data-i18n="pTemp"></span></div>
+        <div class="stat"><b id="pNight"></b><span data-i18n="pNight"></span></div>
+      </div>
+      <div id="planWarn"></div>
+      <ul id="stops"></ul>
+      <div class="cap2" data-i18n="tempAlong"></div>
+      <svg id="tchart" viewBox="0 0 300 110" preserveAspectRatio="none"></svg>
+      <div id="note2" class="cap2"></div>
+      <h2 data-i18n="risks"></h2>
+      <ul id="risks"></ul>
+    </div>
+  </div>
+</div>
+
+<div id="simWrap" hidden><iframe id="simFrame" allow="fullscreen; autoplay"></iframe></div>
+<div class="card" id="menu">
+  <a href="/atlas/" data-ico="globe"><span data-i18n="atlas"></span></a>
+  <a href="/presentation" data-ico="slides"><span data-i18n="presentation"></span></a>
+  <button id="aboutBtn" data-ico="info"><span data-i18n="sources"></span></button>
+</div>
+
+<div id="chips">
+  <div class="chipgroup" id="bodySeg">
+    <button class="chip on" data-v="mars"><i class="pl mars"></i><span data-i18n="mars"></span></button>
+    <button class="chip" data-v="moon"><i class="pl moon"></i><span data-i18n="moon"></span></button>
+  </div>
+  <button class="chip on" id="sitesChip" data-ico="pin"><span data-i18n="showSites"></span></button>
+  <span class="chip" id="onlineChip" style="cursor:default" hidden></span>
+</div>
+
+<div id="langSeg"><button data-v="en">EN</button><button data-v="ru">RU</button></div>
+
+<button id="layerBtn" data-title="layers"><span id="layerBtnT"></span></button>
+<div class="card" id="layerPop">
+  <h4 data-i18n="mapType"></h4>
+  <div class="tiles" id="layerSeg">
+    <button data-v="photo" class="on"><i class="th" style="--tile:linear-gradient(135deg,#6b4630,#b98259 50%,#4a3020)"></i><span data-i18n="photo"></span></button>
+    <button data-v="relief"><i class="th" style="--tile:linear-gradient(135deg,#2c5fa8,#52a85a 35%,#e8d35a 65%,#c0452f)"></i><span data-i18n="relief"></span></button>
+  </div>
+  <div id="ovBox">
+    <h4 data-i18n="sciLayers"></h4>
+    <div id="ovList"></div>
+    <div id="ovAlphaRow"><span data-i18n="opacity"></span><input type="range" id="ovAlpha" min="15" max="100" value="70"></div>
+  </div>
+  <h4 data-i18n="details"></h4>
+  <label><input type="checkbox" id="names" checked><span data-i18n="showNames"></span></label>
+  <label><input type="checkbox" id="sitesOn" checked><span data-i18n="showSites"></span></label>
+  <label><input type="checkbox" id="light"><span data-i18n="showLight"></span></label>
+</div>
+
+<div id="ctrls">
+  <div class="grp"><button id="view3d"></button></div>
+  <div class="grp">
+    <button id="zin" data-ico="plus" data-title="zin"></button>
+    <button id="zout" data-ico="minus" data-title="zout"></button>
+  </div>
+</div>
+
+<button id="atlasBtn" data-i18n="atlasBtn"></button>
+<div id="foot"><span id="cursor"></span><span id="credits"></span><button id="srcBtn"></button></div>
+
+<dialog id="about">
+  <div class="in">
+    <h2 data-i18n="aboutTitle"></h2>
+    <p data-i18n="aboutLead"></p>
+    <h3 data-i18n="aboutData"></h3>
+    <div id="dataList"></div>
+    <h3 data-i18n="aboutModels"></h3>
+    <ul>
+      <li>Shortest paths: Dijkstra, E. W. (1959). A note on two problems in connexion with graphs. <i>Numerische Mathematik</i>, 1, 269–271.</li>
+      <li>Sun position on Mars (Mars24, NASA GISS): Allison, M., &amp; McEwen, M. (2000). A post-Pathfinder evaluation of areocentric solar coordinates with improved timing recipes for Mars seasonal/diurnal climate studies. <i>Planet. Space Sci.</i>, 48, 215–235.</li>
+      <li>Sun position on the Moon: Meeus, J. (1998). <i>Astronomical Algorithms</i> (2nd ed.). Willmann-Bell.</li>
+      <li>Lunar surface temperatures (NASA LRO Diviner, reference values): Williams, J.-P., et al. (2017). The global surface temperatures of the Moon as measured by the Diviner Lunar Radiometer Experiment. <i>Icarus</i>, 283, 300–325.</li>
+      <li>Radiation on Mars (NASA MSL Curiosity RAD): Hassler, D. M., et al. (2014). Mars' surface radiation environment measured with the Mars Science Laboratory's Curiosity rover. <i>Science</i>, 343(6169), 1244797.</li>
+      <li>Radiation on the Moon: Zhang, S., et al. (2020). First measurements of the radiation dose on the lunar surface. <i>Science Advances</i>, 6(39), eaaz1334.</li>
+    </ul>
+    <h3 data-i18n="aboutSoft"></h3>
+    <ul><li>CesiumJS (Apache-2.0), NumPy, SciPy, Rasterio, FastAPI, Uvicorn.</li></ul>
+    <h3 data-i18n="aboutLimits"></h3>
+    <p data-i18n="aboutLimitsText"></p>
+    <p style="margin-top:16px"><button class="pill fill" id="aboutClose"><span data-i18n="close"></span></button></p>
+  </div>
+</dialog>
+
+<script>window.CESIUM_BASE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/cesium/1.135.0/';</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cesium/1.135.0/Cesium.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+
+// ---------------------------------------------------------------- значки (Material Icons)
+const ICON = {
+  globe: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z',
+  menu: 'M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z',
+  close: 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z',
+  back: 'M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z',
+  swap: 'M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3L5 6.99h3V14h2V6.99h3L9 3z',
+  plus: 'M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z',
+  minus: 'M19 13H5v-2h14v2z',
+  search: 'M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z',
+  directions: 'M21.71 11.29l-9-9a.996.996 0 0 0-1.41 0l-9 9a.996.996 0 0 0 0 1.41l9 9c.39.39 1.02.39 1.41 0l9-9a.996.996 0 0 0 0-1.41zM14 14.5V12h-4v3H8v-4c0-.55.45-1 1-1h5V7.5l3.5 3.5-3.5 3.5z',
+  walker: 'M13.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM9.8 8.9L7 23h2.1l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3C14.8 12 16.8 13 19 13v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1L6 8.3V13h2V9.6l1.8-.7',
+  rover_crew: 'M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z',
+  rover_robot: 'M20 9V7c0-1.1-.9-2-2-2h-3c0-1.66-1.34-3-3-3S9 3.34 9 5H6c-1.1 0-2 .9-2 2v2c-1.66 0-3 1.34-3 3s1.34 3 3 3v4c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-4c1.66 0 3-1.34 3-3s-1.34-3-3-3zM7.5 11.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5S9.83 13 9 13s-1.5-.67-1.5-1.5zM16 17H8v-2h8v2zm-1-4c-.83 0-1.5-.67-1.5-1.5S14.17 10 15 10s1.5.67 1.5 1.5S15.83 13 15 13z',
+  pin: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z',
+  terrain: 'M14 6l-3.75 5 2.85 3.8-1.6 1.2C9.81 13.75 7 10 7 10l-6 8h22L14 6z',
+  info: 'M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z',
+  slides: 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zM8 8h8v8H8z',
+  link: 'M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z',
+  size: 'M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 10H3V8h2v4h2V8h2v4h2V8h2v4h2V8h2v4h2V8h2v8z',
+  text: 'M14 17H4v2h10v-2zm6-8H4v2h16V9zM4 15h16v-2H4v2zM4 5v2h16V5H4z',
+  drone: 'M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z',
+};
+const ico = n => `<svg class="i" viewBox="0 0 24 24"><path d="${ICON[n]}"/></svg>`;
+document.querySelectorAll('[data-ico]').forEach(el => el.insertAdjacentHTML('afterbegin', ico(el.dataset.ico)));
+
+// ---------------------------------------------------------------- языки
+const I18N = {
+  en: {
+    atlas: 'Earth analogs (Analog Atlas)', atlasBtn: '🌍 Earth analogs of this site',
+    simDrive: '🚙 Drive this route (simulator)', presentation: 'Presentation', sources: 'Data sources & about', dataSrc: 'Data sources',
+    searchPh: 'Search a crater, mountain, landing site…',
+    startPh: 'Choose starting point, or click on the map', endPh: 'Choose destination, or click on the map',
+    mars: 'Mars', moon: 'Moon', photo: 'Imagery', relief: 'Elevation', mapType: 'Map type', layers: 'Layers',
+    sciLayers: 'NASA science layers', opacity: 'Opacity', ovNone: 'None (base map only)',
+    details: 'Details', elevProfile: 'Elevation along the route',
+    showNames: 'Place names', showSites: 'Landing sites', showLight: 'Day and night at start time',
+    departAt: 'Depart (UTC)', dirs: 'Directions', swap: 'Swap start and destination', back: 'Close directions',
+    menu: 'Menu', clear: 'Clear', close: 'Close', zin: 'Zoom in', zout: 'Zoom out',
+    toGlobe: 'Show as a globe', toFlat: 'Show as a flat map',
+    hint: 'Type a name or click the map to set the start and the destination.',
+    hintB: 'Now choose the destination.', hintA: 'Now choose the starting point.',
+    pin: 'Dropped pin', pinSub: 'Point on the map', elevation: 'Elevation', slopeHere: 'slope',
+    sDist: 'route length', sTime: 'time moving', sUp: 'ascent', sDown: 'descent',
+    sSlope: 'max slope', sEnergy: 'energy',
+    tripPlan: 'Trip plan', pTotal: 'total with stops', pArr: 'arrival (UTC)', pTemp: 'temperature on the way',
+    pNight: 'moving in the dark', tempAlong: 'Surface temperature along the route', risks: 'Risks',
+    lvl: { low: 'low', mid: 'medium', high: 'high' },
+    computing: 'Computing three route options…', noServer: 'The server is not responding.',
+    bestAll: 'Best on every criterion', routeErr: 'Route calculation failed.', noRouteShort: 'no route', done: s => `Computed in ${s} s`,
+    noStops: 'No stops needed.', none: 'none', upTo: 'up to',
+    note: (st, res) => `Straight line: ${st}. Grid step: ${res} m. Time moving excludes stops.`,
+    approx: ' Part of the path is approximate.',
+    startInfo: (lt, sun, temp) => `At the start in point A: local solar time ${lt}, the Sun is ${sun}, surface ${temp} °C.`,
+    sunUp: e => `${e}° above the horizon`, sunDown: e => `below the horizon (${e}°)`,
+    season: ls => ` Mars season: Ls ${ls}°.`, battery: b => ` Charge at the end: ${b} kWh.`,
+    someStops: n => ` The map shows some of the stops (${n} in total).`,
+    demMissing: 'Elevation map is not ready yet: ', noRoutes: 'The routing server is unavailable.',
+    km: 'km', m: 'm', min: 'min', h: 'h', d: 'd', kwh: 'kWh', N: 'N', S: 'S', E: 'E', W: 'W',
+    group: { crater: 'crater', mountain: 'mountain or ridge', valley: 'valley or trench', plain: 'plain',
+             site: 'feature near a landing site', other: 'feature' },
+    kind: { crew: 'crewed landing', rover: 'rover', lander: 'lander' },
+    sol: 'sol', asOf: 'position as of', drivenTotal: 'driven in total', tilt: 'Pitch / roll', heading: 'heading', playersOnline: n => `Players online: ${n}`,
+    diameter: 'Size', iauLink: 'IAU Gazetteer entry', fromHere: 'Start here',
+    landed: 'landed in', aboutTitle: 'Data sources & about',
+    aboutLead: 'Routes Beyond Earth finds a way between two points on the Moon or Mars and estimates what the trip would cost in time, energy and risk. It is a first-look tool for education and early concept studies, built on open NASA data. It is not a mission planning tool.',
+    aboutData: 'Data used in this project', aboutModels: 'Methods and reference values', aboutSoft: 'Software',
+    aboutLimits: 'Limits',
+    aboutLimitsText: 'Grid step is 926 m on Mars and 474 m on the Moon, so rocks and small craters are invisible. Temperature, dust storm, meteor shower and radiation estimates are simplified educational models. Shadows cast by terrain and solar flares are not modelled. Travel rules (shift length, battery size, speed) are illustrative values chosen by the team.',
+    usedFor: 'Used for', localFile: 'File',
+  },
+  ru: {
+    atlas: 'Земные аналоги (Analog Atlas)', atlasBtn: '🌍 Земные аналоги этого места',
+    simDrive: '🚙 Проехать маршрут (симулятор)', presentation: 'Презентация', sources: 'Источники данных и о проекте', dataSrc: 'Источники данных',
+    searchPh: 'Найти кратер, гору, место посадки…',
+    startPh: 'Выберите начало или щёлкните по карте', endPh: 'Выберите пункт назначения или щёлкните по карте',
+    mars: 'Марс', moon: 'Луна', photo: 'Снимок', relief: 'Рельеф', mapType: 'Тип карты', layers: 'Слои',
+    sciLayers: 'Научные слои NASA', opacity: 'Прозрачность', ovNone: 'Нет (только основа)',
+    details: 'Подробности', elevProfile: 'Высота вдоль маршрута',
+    showNames: 'Названия мест', showSites: 'Места посадок', showLight: 'День и ночь на момент старта',
+    departAt: 'Отправление (UTC)', dirs: 'Маршрут', swap: 'Поменять начало и конец', back: 'Закрыть маршрут',
+    menu: 'Меню', clear: 'Очистить', close: 'Закрыть', zin: 'Приблизить', zout: 'Отдалить',
+    toGlobe: 'Показать шаром', toFlat: 'Показать плоской картой',
+    hint: 'Введите название или щёлкните по карте, чтобы выбрать начало и конец пути.',
+    hintB: 'Теперь выберите пункт назначения.', hintA: 'Теперь выберите начало пути.',
+    pin: 'Метка на карте', pinSub: 'Точка на карте', elevation: 'Высота', slopeHere: 'уклон',
+    sDist: 'длина маршрута', sTime: 'время в движении', sUp: 'набор высоты', sDown: 'спуск',
+    sSlope: 'макс. уклон', sEnergy: 'энергия',
+    tripPlan: 'План поездки', pTotal: 'всего с остановками', pArr: 'прибытие (UTC)', pTemp: 'температура в пути',
+    pNight: 'движения в темноте', tempAlong: 'Температура поверхности вдоль маршрута', risks: 'Риски',
+    lvl: { low: 'низкий', mid: 'средний', high: 'высокий' },
+    computing: 'Считаю три варианта маршрута…', noServer: 'Сервер не отвечает.',
+    bestAll: 'Лучший по всем критериям', routeErr: 'Ошибка расчёта.', noRouteShort: 'маршрута нет', done: s => `Рассчитано за ${s} с`,
+    noStops: 'Остановки не нужны.', none: 'нет', upTo: 'до',
+    note: (st, res) => `По прямой: ${st}. Шаг сетки: ${res} м. Время в движении указано без остановок.`,
+    approx: ' Часть пути показана приближённо.',
+    startInfo: (lt, sun, temp) => `При старте в точке A: местное солнечное время ${lt}, Солнце ${sun}, поверхность ${temp} °C.`,
+    sunUp: e => `на ${e}° над горизонтом`, sunDown: e => `под горизонтом (${e}°)`,
+    season: ls => ` Сезон Марса: Ls ${ls}°.`, battery: b => ` Заряд в конце: ${b} кВт·ч.`,
+    someStops: n => ` На карте показана часть остановок (всего их ${n}).`,
+    demMissing: 'Карта высот ещё не готова: ', noRoutes: 'Сервер маршрутов недоступен.',
+    km: 'км', m: 'м', min: 'мин', h: 'ч', d: 'сут', kwh: 'кВт·ч', N: 'с.ш.', S: 'ю.ш.', E: 'в.д.', W: 'з.д.',
+    group: { crater: 'кратер', mountain: 'гора или гряда', valley: 'долина или борозда', plain: 'равнина',
+             site: 'объект у места посадки', other: 'объект' },
+    kind: { crew: 'пилотируемая посадка', rover: 'планетоход', lander: 'посадочная станция' },
+    sol: 'сол', asOf: 'положение на', drivenTotal: 'пройдено всего', tilt: 'Тангаж / крен', heading: 'курс', playersOnline: n => `Игроков онлайн: ${n}`,
+    diameter: 'Размер', iauLink: 'Запись в справочнике IAU', fromHere: 'Начать отсюда',
+    landed: 'посадка в', aboutTitle: 'Источники данных и о проекте',
+    aboutLead: 'Routes Beyond Earth находит путь между двумя точками на Луне или Марсе и оценивает, чего будет стоить поездка по времени, энергии и риску. Это инструмент первого взгляда для образования и ранних проработок, построенный на открытых данных NASA. Это не инструмент планирования миссий.',
+    aboutData: 'Какие данные использует проект', aboutModels: 'Методы и опорные значения', aboutSoft: 'Программы',
+    aboutLimits: 'Ограничения',
+    aboutLimitsText: 'Шаг сетки 926 м на Марсе и 474 м на Луне, поэтому камни и мелкие кратеры не видны. Оценки температуры, пыльных бурь, метеорных потоков и радиации сделаны по упрощённым учебным моделям. Тени от рельефа и солнечные вспышки не учитываются. Правила движения (длина смены, ёмкость батареи, скорость) подобраны командой как наглядные значения.',
+    usedFor: 'Для чего', localFile: 'Файл',
+  },
+};
+
+// Список наборов данных для окна «Источники»: что взято, откуда и для чего.
+const DATASETS = [
+  { org: 'NASA', link: 'https://astrogeology.usgs.gov/', file: 'Mars_MGS_MOLA_DEM_mosaic_global_463m.tif',
+    en: ['Mars elevation model (MGS MOLA, 463 m per pixel)',
+         'Laser altimeter on NASA’s Mars Global Surveyor; global mosaic prepared by USGS Astrogeology.',
+         'Slopes, ascent and descent, route search on Mars.'],
+    ru: ['Модель высот Марса (MGS MOLA, 463 м на пиксель)',
+         'Лазерный высотомер на аппарате NASA Mars Global Surveyor; глобальную мозаику подготовила USGS Astrogeology.',
+         'Уклоны, набор высоты и спуск, поиск маршрута на Марсе.'],
+    cite: 'Smith, D. E., et al. (2001). J. Geophys. Res., 106(E10), 23689–23722.' },
+  { org: 'NASA', link: 'https://astrogeology.usgs.gov/', file: 'Lunar_LRO_LOLA_Global_LDEM_118m_Mar2014.tif',
+    en: ['Moon elevation model (LRO LOLA, 118 m per pixel)',
+         'Laser altimeter on NASA’s Lunar Reconnaissance Orbiter; global mosaic prepared by USGS Astrogeology.',
+         'Slopes, ascent and descent, route search on the Moon.'],
+    ru: ['Модель высот Луны (LRO LOLA, 118 м на пиксель)',
+         'Лазерный высотомер на аппарате NASA Lunar Reconnaissance Orbiter; глобальную мозаику подготовила USGS Astrogeology.',
+         'Уклоны, набор высоты и спуск, поиск маршрута на Луне.'],
+    cite: 'Smith, D. E., et al. (2010). Space Sci. Rev., 150, 209–241.' },
+  { org: 'NASA Trek', link: 'https://trek.nasa.gov/mars/', file: 'trek.nasa.gov/tiles (online)',
+    en: ['Mars map tiles: Viking MDIM 2.1 colour mosaic (232 m) and MOLA colour shaded relief (463 m)',
+         'Served by NASA Solar System Treks.', 'Background “Imagery” and “Elevation” layers on Mars.'],
+    ru: ['Карта Марса: цветная мозаика Viking MDIM 2.1 (232 м) и цветной рельеф MOLA (463 м)',
+         'Тайлы отдаёт NASA Solar System Treks.', 'Подложка «Снимок» и «Рельеф» для Марса.'],
+    cite: '' },
+  { org: 'NASA Trek', link: 'https://trek.nasa.gov/moon/', file: 'trek.nasa.gov/tiles (online)',
+    en: ['Moon map tiles: LRO WAC global mosaic (303 ppd) and LOLA colour shaded relief (128 ppd)',
+         'Served by NASA Solar System Treks.', 'Background “Imagery” and “Elevation” layers on the Moon.'],
+    ru: ['Карта Луны: глобальная мозаика LRO WAC (303 ppd) и цветной рельеф LOLA (128 ppd)',
+         'Тайлы отдаёт NASA Solar System Treks.', 'Подложка «Снимок» и «Рельеф» для Луны.'],
+    cite: '' },
+  { org: 'IAU / USGS', link: 'https://planetarynames.wr.usgs.gov/', file: '*_nomenclature_center_pts.zip',
+    en: ['Place names: Gazetteer of Planetary Nomenclature (centre points of named features)',
+         'International Astronomical Union, hosted by USGS Astrogeology.', 'Search and labels: craters, mountains, valleys, plains.'],
+    ru: ['Названия мест: Gazetteer of Planetary Nomenclature (центры названных объектов)',
+         'Международный астрономический союз (IAU), хранит USGS Astrogeology.', 'Поиск и подписи: кратеры, горы, долины, равнины.'],
+    cite: '' },
+  { org: 'NASA', link: 'https://astrogeology.usgs.gov/', file: 'server/terrain.py',
+    en: ['Driving simulator terrain (MOLA / LOLA at native resolution)',
+         'The same NASA elevation files, read at 463 m and 118 m per pixel and smoothed bicubically; on top come procedural craters (16-800 m, power-law size distribution N(>D) ~ D⁻²), regolith ripples and boulders. This detail is a model, not measured data.',
+         'Terrain under the wheels in the “Drive this route” simulator.'],
+    ru: ['Рельеф для симулятора езды (MOLA / LOLA в родном разрешении)',
+         'Те же файлы высот NASA, прочитанные в разрешении 463 м и 118 м на пиксель и сглаженные бикубически; сверху добавлены процедурные кратеры (16-800 м, степенное распределение размеров N(>D) ~ D⁻²), рябь грунта и валуны. Эта детализация — модель, а не измерения.',
+         'Рельеф под колёсами в симуляторе «Проехать маршрут».'],
+    cite: '' },
+  { org: 'NASA/JPL', link: 'https://mars.nasa.gov/mmgis-maps/M20/', file: 'server/assets.py (live)',
+    en: ['Live positions of Perseverance and Curiosity', 'NASA/JPL-Caltech MMGIS waypoint feeds: end-of-drive location, sol, pitch/roll, heading and distance driven. Updated after every drive and cached for 10 minutes.',
+         'Orange LIVE markers on the map and real vehicles you can find inside the simulator.'],
+    ru: ['Живое положение Perseverance и Curiosity', 'Потоки путевых точек NASA/JPL-Caltech MMGIS: положение в конце заезда, номер сола, крен/тангаж, курс и пройденный путь. Обновляются после каждого заезда, кэш 10 минут.',
+         'Оранжевые метки LIVE на карте и настоящие аппараты, которых можно найти в симуляторе.'],
+    cite: '' },
+  { org: 'NASA NSSDCA', link: 'https://nssdc.gsfc.nasa.gov/', file: 'server/sites.py',
+    en: ['Landing sites of Moon and Mars missions',
+         'Coordinates from NASA Space Science Data Coordinated Archive and agency publications; five lunar sites checked against the IAU gazetteer.',
+         'Yellow landing-site markers and their cards.'],
+    ru: ['Места посадок лунных и марсианских миссий',
+         'Координаты из архива NASA NSSDCA и публикаций агентств; пять лунных мест сверены со справочником IAU.',
+         'Жёлтые метки мест посадок и их карточки.'],
+    cite: '' },
+];
+function renderData() {
+  const t = T();
+  $('dataList').innerHTML = DATASETS.map(d => {
+    const [title, what, use] = d[lang];
+    return `<div class="ds"><div class="h">${title}<span class="b ${d.org.startsWith('NASA') ? 'nasa' : ''}">${d.org}</span></div>` +
+      `<p>${what}</p><p>${t.usedFor}: ${use}</p>` +
+      `<div class="c">${t.localFile}: <code>${d.file}</code> · <a href="${d.link}" target="_blank" rel="noopener">${d.link.replace(/^https:\/\//, '')}</a>` +
+      `${d.cite ? '<br>' + d.cite : ''}</div></div>`;
+  }).join('');
+}
+
+let lang = 'en';
+try { if (localStorage.getItem('rbe-lang') === 'ru') lang = 'ru'; } catch {}
+const T = () => I18N[lang];
+const num = (x, o) => x.toLocaleString(lang === 'ru' ? 'ru' : 'en', o);
+
+function applyLang() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = T()[el.dataset.i18n]; });
+  document.querySelectorAll('[data-title]').forEach(el => { el.title = T()[el.dataset.title]; });
+  $('search').placeholder = T().searchPh;
+  $('inA').placeholder = T().startPh; $('inB').placeholder = T().endPh;
+  $('srcBtn').textContent = T().dataSrc;
+  [...$('langSeg').children].forEach(b => b.classList.toggle('on', b.dataset.v === lang));
+  renderData(); syncLayerBtn(); syncViewBtn(); showPts(); profCap(); if (viewer) buildOverlays();
+}
+
+// ---------------------------------------------------------------- карта
+const TREK = 'https://trek.nasa.gov/tiles';
+const LAYERS = {
+  mars: {
+    photo:  { id: 'Mars/EQ/Mars_Viking_MDIM21_ClrMosaic_global_232m', ext: 'jpg', max: 7 },
+    relief: { id: 'Mars/EQ/Mars_MGS_MOLA_ClrShade_merge_global_463m', ext: 'jpg', max: 7 },
+  },
+  moon: {
+    photo:  { id: 'Moon/EQ/LRO_WAC_Mosaic_Global_303ppd_v02', ext: 'jpg', max: 8 },
+    relief: { id: 'Moon/EQ/LRO_LOLA_ClrShade_Global_128ppd_v04', ext: 'png', max: 5 },
+  },
+};
+// Научные слои Mars Trek (NASA/JPL, данные приборов THEMIS, TES, MOLA): накладываются на основу с регулируемой прозрачностью.
+const OVERLAYS = {
+  mars: [
+    { k: 'themis_day', id: 'Mars/EQ/THEMIS_DayIR_ControlledMosaics_100m_v2_oct2018', ext: 'png', max: 9, kind: ['thermal', 'тепловой'], en: 'Thermal infrared, day', ru: 'Тепловой ИК, день', src: 'Mars Odyssey THEMIS' },
+    { k: 'themis_night', id: 'Mars/EQ/THEMIS_NightIR_ControlledMosaics_100m_v2_oct2018', ext: 'png', max: 9, kind: ['thermal', 'тепловой'], en: 'Thermal infrared, night', ru: 'Тепловой ИК, ночь', src: 'Mars Odyssey THEMIS' },
+    { k: 'tes_ti', id: 'Mars/EQ/TES_Thermal_Inertia', ext: 'png', max: 1, kind: ['geophysical', 'геофиз.'], en: 'Thermal inertia (soil vs. rock)', ru: 'Тепловая инерция (грунт и скалы)', src: 'MGS TES' },
+    { k: 'tes_dust', id: 'Mars/EQ/TES_Dust', ext: 'png', max: 1, kind: ['atmosphere', 'атмосфера'], en: 'Dust cover', ru: 'Покрытие пылью', src: 'MGS TES' },
+    { k: 'mola_rough', id: 'Mars/EQ/mola_roughness', ext: 'png', max: 1, kind: ['topographic', 'рельеф'], en: 'Surface roughness', ru: 'Шероховатость поверхности', src: 'MGS MOLA' },
+    { k: 'tes_albedo', id: 'Mars/EQ/Mars_MGS_TES_Albedo_mosaic_global_7410m', ext: 'png', max: 1, kind: ['optical', 'оптика'], en: 'Surface albedo', ru: 'Альбедо поверхности', src: 'MGS TES' },
+    { k: 'tes_pyx', id: 'Mars/EQ/TES_Clinopyroxene', ext: 'png', max: 1, kind: ['spectral', 'спектр'], en: 'High-Ca pyroxene (mineralogy)', ru: 'Пироксен (минералогия)', src: 'MGS TES' },
+  ],
+  moon: [],
+};
+let ovLayer = null;
+// Сервер считает оба тела сферами, поэтому и глобус рисуем сферой того же радиуса.
+const RADIUS = { mars: 3396190, moon: 1737400 };
+const COLORS = { a: '#2dd4bf', b: '#ff7a59', route: '#ffb020', alt: '#7c8db0' };
+const STOP_COLORS = { rest: '#5aa9ff', night: '#b08cff', temp: '#ffd24a', charge: '#38d39f' };
+const GROUP_COLORS = { crater: '#e8ecf4', mountain: '#ffd9a0', valley: '#a8d8ff', plain: '#c9f0c0',
+                       site: '#ffe680', other: '#d0d0d0' };
+const PROF_ICON = { walker: 'walker', rover_crew: 'rover_crew', rover_robot: 'rover_robot', drone: 'drone' };
+const state = { body: 'mars', layer: 'photo', overlay: '', ovAlpha: 0.7, view: '2d', a: null, b: null, req: 0, dir: false, focus: null,
+                results: null, places: [], sites: [], live: [], sel: null, players: [] };
+let liveColl = null, liveLabels = null, liveEnts = [];
+let viewer = null, ell = null, handler = null, lines = [], stopEnts = [], drag = null, pinEnt = null;
+let placeLabels = null, sitePoints = null, siteLabels = null, profiles = {};
+const mk = { a: null, b: null };
+
+function createViewer() {
+  playerEnts = new Map();
+  if (handler) handler.destroy();
+  if (viewer) viewer.destroy();
+  placeLabels = sitePoints = siteLabels = null; pinEnt = null;
+  const R = RADIUS[state.body];
+  ell = new Cesium.Ellipsoid(R, R, R);
+  Cesium.Ellipsoid.default = ell;
+  viewer = new Cesium.Viewer('map', {
+    baseLayer: false, globe: new Cesium.Globe(ell), mapProjection: new Cesium.GeographicProjection(ell),
+    skyAtmosphere: false, animation: false, timeline: false, baseLayerPicker: false, geocoder: false,
+    homeButton: false, sceneModePicker: false, navigationHelpButton: false, infoBox: false,
+    selectionIndicator: false, fullscreenButton: false, creditContainer: $('credits'),
+    // Рисуем кадр только при изменениях, а не 60 раз в секунду: меньше нагрузка на ноутбук.
+    requestRenderMode: true, maximumRenderTimeChange: Infinity,
+    sceneMode: state.view === '2d' ? Cesium.SceneMode.SCENE2D : Cesium.SceneMode.SCENE3D,
+  });
+  const sc = viewer.scene;
+  sc.globe.showGroundAtmosphere = false;
+  sc.globe.enableLighting = false;
+  sc.globe.baseColor = Cesium.Color.BLACK;
+  sc.fog.enabled = false;
+  if (sc.sun) sc.sun.show = false;
+  if (sc.moon) sc.moon.show = false;
+  sc.screenSpaceCameraController.minimumZoomDistance = 3000;
+  sc.screenSpaceCameraController.maximumZoomDistance = R * 8;
+  viewer.cesiumWidget.screenSpaceEventHandler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+  if (state.view === '2d') { const half = Math.max(50, Math.min(180, 190 * innerWidth / innerHeight)); viewer.camera.setView({ destination: Cesium.Rectangle.fromDegrees(-half, -88, half, 88) }); }
+  else viewer.camera.setView({ destination: Cesium.Cartesian3.fromDegrees(0, 10, R * 3.2, ell) });
+  setTiles();
+  updateLight();
+  loadPlaces();
+
+  handler = new Cesium.ScreenSpaceEventHandler(sc.canvas);
+  const E = Cesium.ScreenSpaceEventType;
+  handler.setInputAction(e => {
+    const hit = sc.pick(e.position), id = hit && hit.id;
+    if (id && id.markerKey) return;
+    if (id && id.altMode) { $('mode').value = id.altMode; render(); return; }
+    const obj = id && (id.place || id.site);
+    if (state.dir) {
+      // В режиме маршрута щелчок задаёт точку: ту, где стоит курсор ввода, иначе первую пустую.
+      const p = obj ? { lat: obj.lat, lng: obj.lon, name: nameOf(obj) } : pickLL(e.position);
+      if (!p) return;
+      const k = state.focus || (!state.a ? 'a' : !state.b ? 'b' : null); if (!k) return;
+      state.focus = null; setPoint(k, p); return;
+    }
+    if (obj) { showCard(obj); return; }
+    const p = pickLL(e.position); if (p) showCard({ pin: true, lat: p.lat, lon: p.lng });
+  }, E.LEFT_CLICK);
+  handler.setInputAction(e => {
+    const hit = sc.pick(e.position);
+    drag = hit && hit.id && hit.id.markerKey ? hit.id.markerKey : null;
+    if (drag) sc.screenSpaceCameraController.enableInputs = false;
+  }, E.LEFT_DOWN);
+  handler.setInputAction(e => {
+    const p = pickLL(e.endPosition);
+    $('cursor').textContent = p ? fmtLL(p) : '';
+    if (drag && p) { state[drag] = p; placeMarker(drag); showPts(); }
+  }, E.MOUSE_MOVE);
+  handler.setInputAction(() => {
+    if (!drag) return;
+    sc.screenSpaceCameraController.enableInputs = true;
+    drag = null; refresh(false);
+  }, E.LEFT_UP);
+}
+
+function setTiles() {
+  const l = LAYERS[state.body][state.layer];
+  viewer.imageryLayers.removeAll();
+  viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
+    url: `${TREK}/${l.id}/1.0.0/default/default028mm/{z}/{y}/{x}.${l.ext}`,
+    tilingScheme: new Cesium.GeographicTilingScheme({ ellipsoid: ell }),
+    maximumLevel: l.max, credit: 'Data: NASA / USGS / Solar System Treks · Names: IAU',
+  }));
+  ovLayer = null;
+  const ov = (OVERLAYS[state.body] || []).find(o => o.k === state.overlay);
+  if (ov) {
+    ovLayer = viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
+      url: `${TREK}/${ov.id}/1.0.0/default/default028mm/{z}/{y}/{x}.${ov.ext}`,
+      tilingScheme: new Cesium.GeographicTilingScheme({ ellipsoid: ell }),
+      maximumLevel: ov.max, credit: `Overlay: ${ov.en} · NASA/JPL ${ov.src} via Solar System Treks`,
+    }));
+    ovLayer.alpha = state.ovAlpha;
+  }
+  buildOverlays();
+  viewer.scene.requestRender();
+}
+
+function buildOverlays() {
+  const list = OVERLAYS[state.body] || [], L = lang === 'ru' ? 1 : 0;
+  $('ovBox').style.display = list.length ? '' : 'none';
+  $('ovList').innerHTML = `<button data-v="" class="${state.overlay ? '' : 'on'}"><span>${T().ovNone}</span></button>` +
+    list.map(o => `<button data-v="${o.k}" class="${state.overlay === o.k ? 'on' : ''}"><span>${lang === 'ru' ? o.ru : o.en}</span><small>${o.kind[L]}</small></button>`).join('');
+  $('ovAlpha').value = Math.round(state.ovAlpha * 100);
+}
+$('ovList').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b || state.overlay === b.dataset.v) return;
+  state.overlay = b.dataset.v; setTiles();
+});
+$('ovAlpha').addEventListener('input', e => {
+  state.ovAlpha = e.target.value / 100; if (ovLayer) { ovLayer.alpha = state.ovAlpha; viewer.scene.requestRender(); }
+});
+function pickLL(pos) {
+  const c = viewer.camera.pickEllipsoid(pos, ell); if (!c) return null;
+  const g = Cesium.Cartographic.fromCartesian(c, ell); if (!g) return null;
+  return { lat: Cesium.Math.toDegrees(g.latitude), lng: Cesium.Math.toDegrees(g.longitude) };
+}
+function placeMarker(k) {
+  const pos = Cesium.Cartesian3.fromDegrees(state[k].lng, state[k].lat, 0, ell);
+  if (mk[k]) { mk[k].position = pos; return; }
+  mk[k] = viewer.entities.add({
+    position: pos,
+    point: { pixelSize: 26, color: Cesium.Color.fromCssColorString(COLORS[k]),
+             outlineColor: Cesium.Color.WHITE, outlineWidth: 3,
+             disableDepthTestDistance: Number.POSITIVE_INFINITY },
+    label: { text: k.toUpperCase(), font: 'bold 14px sans-serif', fillColor: Cesium.Color.fromCssColorString(k === 'a' ? '#04201c' : '#ffffff'),
+             style: Cesium.LabelStyle.FILL, verticalOrigin: Cesium.VerticalOrigin.CENTER,
+             horizontalOrigin: Cesium.HorizontalOrigin.CENTER, eyeOffset: new Cesium.Cartesian3(0, 0, -10),
+             disableDepthTestDistance: Number.POSITIVE_INFINITY },
+  });
+  mk[k].markerKey = k;
+}
+function setPin(lat, lon) {
+  if (pinEnt) { viewer.entities.remove(pinEnt); pinEnt = null; }
+  if (lat == null) { viewer.scene.requestRender(); return; }
+  pinEnt = viewer.entities.add({
+    position: Cesium.Cartesian3.fromDegrees(lon, lat, 0, ell),
+    point: { pixelSize: 16, color: Cesium.Color.fromCssColorString('#ff7a59'), outlineColor: Cesium.Color.WHITE,
+             outlineWidth: 3, disableDepthTestDistance: Number.POSITIVE_INFINITY },
+  });
+  viewer.scene.requestRender();
+}
+
+// ---------------------------------------------------------------- названия мест и посадки
+async function loadPlaces() {
+  const v = viewer, body = state.body;
+  state.places = []; state.sites = []; state.live = [];
+  try {
+    const [pl, st, lv] = await Promise.all([
+      fetch('/api/places?body=' + body).then(r => r.ok ? r.json() : []),
+      fetch('/api/sites?body=' + body).then(r => r.ok ? r.json() : []),
+      fetch('/api/assets?body=' + body + '&trace=1').then(r => r.ok ? r.json() : []).catch(() => []),
+    ]);
+    if (v !== viewer || body !== state.body) return;
+    state.places = pl; state.sites = st; state.live = lv.filter(a => a.live);
+  } catch {}
+  buildPlaces();
+}
+
+function buildPlaces() {
+  const prim = viewer.scene.primitives, R = RADIUS[state.body];
+  [placeLabels, sitePoints, siteLabels, liveColl, liveLabels].forEach(c => c && prim.remove(c));
+  placeLabels = sitePoints = siteLabels = liveColl = liveLabels = null;
+  liveEnts.forEach(e => viewer.entities.remove(e)); liveEnts = [];
+  const DDC = Cesium.DistanceDisplayCondition;
+  if ($('names').checked) {
+    placeLabels = prim.add(new Cesium.LabelCollection());
+    state.places.forEach((p, i) => {
+      // Крупный объект виден издалека, мелкий только вблизи; совсем вплотную подпись региона прячем.
+      // Список отсортирован по размеру: с расстояния «весь шар» видны только 40 самых крупных.
+      let far = Math.min(Math.max(p.d * 1000 * 7, 40000), R * 9);
+      if (i >= 40) far = Math.min(far, R * 1.5);
+      const near = p.d > 300 ? p.d * 1000 * 0.35 : 0;
+      placeLabels.add({
+        position: Cesium.Cartesian3.fromDegrees(p.lon, p.lat, 0, ell), text: p.n,
+        font: p.d > 600 ? '600 15px sans-serif' : '12px sans-serif',
+        fillColor: Cesium.Color.fromCssColorString(GROUP_COLORS[p.g] || '#fff'),
+        outlineColor: Cesium.Color.BLACK, outlineWidth: 3, style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        horizontalOrigin: Cesium.HorizontalOrigin.CENTER, verticalOrigin: Cesium.VerticalOrigin.CENTER,
+        distanceDisplayCondition: new DDC(near, far), id: { place: p },
+      });
+    });
+  }
+  if ($('sitesOn').checked) {
+    sitePoints = prim.add(new Cesium.PointPrimitiveCollection());
+    siteLabels = prim.add(new Cesium.LabelCollection());
+    for (const s of state.sites) {
+      const pos = Cesium.Cartesian3.fromDegrees(s.lon, s.lat, 0, ell);
+      sitePoints.add({ position: pos, pixelSize: 10, color: Cesium.Color.fromCssColorString('#fbbc04'),
+                       outlineColor: Cesium.Color.WHITE, outlineWidth: 2, id: { site: s } });
+      siteLabels.add({ position: pos, text: `${s[lang]} · ${s.year}`, font: '600 12px sans-serif',
+        fillColor: Cesium.Color.fromCssColorString('#ffe14a'), outlineColor: Cesium.Color.BLACK,
+        outlineWidth: 3, style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        pixelOffset: new Cesium.Cartesian2(0, -16), horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
+        distanceDisplayCondition: new DDC(0, R * 2.2), id: { site: s } });
+    }
+  }
+  // Живые данные NASA: настоящие положения марсоходов и их пройденный путь.
+  if (state.live.length) {
+    liveColl = prim.add(new Cesium.PointPrimitiveCollection()); liveLabels = prim.add(new Cesium.LabelCollection());
+    for (const a of state.live) {
+      const pos = Cesium.Cartesian3.fromDegrees(a.lon, a.lat, 0, ell);
+      liveColl.add({ position: pos, pixelSize: 13, color: Cesium.Color.fromCssColorString('#ff7a59'), outlineColor: Cesium.Color.WHITE, outlineWidth: 2, id: { site: a } });
+      liveLabels.add({ position: pos, text: `${a[lang]} · LIVE`, font: '700 13px sans-serif', fillColor: Cesium.Color.fromCssColorString('#ffb59e'), outlineColor: Cesium.Color.BLACK, outlineWidth: 3,
+        style: Cesium.LabelStyle.FILL_AND_OUTLINE, pixelOffset: new Cesium.Cartesian2(0, -20), horizontalOrigin: Cesium.HorizontalOrigin.CENTER, distanceDisplayCondition: new DDC(0, R * 3), id: { site: a } });
+      if (a.trace && a.trace.length > 1) liveEnts.push(viewer.entities.add({ polyline: { positions: Cesium.Cartesian3.fromDegreesArray(a.trace.flatMap(q => [q[1], q[0]]), ell), width: 2.5, arcType: Cesium.ArcType.NONE,
+        material: Cesium.Color.fromCssColorString('#ff7a59').withAlpha(0.8) } }));
+    }
+  }
+  viewer.scene.requestRender();
+}
+
+const nameOf = o => o.n || o[lang] || o.label || T().pin;
+const irow = (icon, html) => `<div class="irow">${ico(icon)}<div class="t">${html}</div></div>`;
+function showCard(o) {
+  state.sel = o;
+  $('cName').textContent = nameOf(o);
+  $('cBanner').className = 'banner ' + state.body;
+  const rows = [];
+  if (o.n) {   // объект справочника IAU
+    $('cMeta').textContent = `${o.t} · ${T().group[o.g] || T().group.other}`;
+    if (o.o) rows.push(irow('text', o.o));
+    if (o.d > 0) rows.push(irow('size', `${T().diameter}: ${num(o.d)} ${T().km}`));
+  } else if (o.live) {     // настоящий марсоход: живые данные NASA
+    $('cMeta').textContent = `${T().kind[o.kind]} · ${o.agency} · LIVE · ${T().sol} ${o.sol}`;
+    rows.push(irow('info', `<b style="color:#ff7a59">LIVE</b> · ${T().asOf} ${o.as_of.replace('T', ' ').replace('Z', ' UTC')}`));
+    if (o.total_km) rows.push(irow('size', `${num(o.total_km)} ${T().km} ${T().drivenTotal}`));
+    rows.push(irow('terrain', `${T().tilt}: ${o.pitch_deg}° / ${o.roll_deg}° · ${T().heading}: ${Math.round(o.heading_deg)}°`));
+    rows.push(irow('link', `<a href="${o.source_url}" target="_blank" rel="noopener">${o.source}</a>`));
+  } else if (o.kind) {     // место посадки
+    $('cMeta').textContent = `${T().kind[o.kind]} · ${o.agency} · ${T().landed} ${o.year}`;
+  } else {
+    $('cMeta').textContent = T().pinSub;
+  }
+  rows.push(irow('pin', fmtLL({ lat: o.lat, lng: o.lon })));
+  rows.push(irow('terrain', `<span id="cElev">…</span>`));
+  if (o.u) rows.push(irow('link', `<a href="${o.u}" target="_blank" rel="noopener">${T().iauLink}</a>`));
+  $('cInfo').innerHTML = rows.join('');
+  $('card').hidden = false;
+  $('card').scrollIntoView({ block: 'nearest' });
+  setPin(o.lat, o.lon);
+  fetch(`/api/elevation?body=${state.body}&lat=${o.lat}&lon=${o.lon}`).then(r => r.ok ? r.json() : null).then(e => {
+    if (state.sel !== o || !$('cElev')) return;
+    $('cElev').textContent = e ? `${T().elevation}: ${num(e.elev_m)} ${T().m} · ${T().slopeHere} ${e.slope_deg.toFixed(1)}°` : '—';
+  }).catch(() => {});
+}
+function closeCard() { state.sel = null; $('card').hidden = true; if (viewer) setPin(null); }
+$('cClose').addEventListener('click', () => { closeCard(); $('search').value = ''; $('clearSearch').hidden = true; });
+
+// ---------------------------------------------------------------- режим маршрута
+function openDir() {
+  state.dir = true; state.focus = null;
+  closeCard();
+  $('searchCard').hidden = true; $('dirCard').hidden = false;
+  syncHint();
+  if (!state.a) $('inA').focus(); else if (!state.b) $('inB').focus();
+}
+function closeDir() {
+  clearAll();
+  state.dir = false; state.focus = null;
+  $('dirCard').hidden = true; $('searchCard').hidden = false; $('result').hidden = true;
+}
+$('dirBtn').addEventListener('click', () => openDir());
+$('dirClose').addEventListener('click', closeDir);
+$('dirX').addEventListener('click', closeDir);
+$('cTo').addEventListener('click', () => { const o = state.sel; if (!o) return; openDirWith(o, 'b'); });
+$('cFrom').addEventListener('click', () => { const o = state.sel; if (!o) return; openDirWith(o, 'a'); });
+function openDirWith(o, k) {
+  const p = { lat: o.lat, lng: o.lon, name: nameOf(o) };
+  openDir();
+  setPoint(k, p);
+  syncHint();
+  const other = k === 'a' ? 'inB' : 'inA';
+  if (!state[k === 'a' ? 'b' : 'a']) $(other).focus();
+}
+$('swap').addEventListener('click', () => {
+  [state.a, state.b] = [state.b, state.a];
+  for (const k of ['a', 'b']) {
+    if (mk[k] && !state[k]) { viewer.entities.remove(mk[k]); mk[k] = null; }
+    else if (state[k]) { placeMarker(k); }
+  }
+  showPts(); refresh(true);
+});
+
+function setPoint(k, p) {
+  state[k] = p; placeMarker(k); showPts(); syncHint(); viewer.scene.requestRender();
+  refresh(true);
+}
+function syncHint() {
+  $('dirHint').textContent = state.a && state.b ? '' : !state.a && !state.b ? T().hint : !state.a ? T().hintA : T().hintB;
+}
+
+// ---------------------------------------------------------------- поиск (общий для трёх полей)
+function attachSearch(input, list, onPick) {
+  let items = [];
+  const fill = () => {
+    const raw = input.value.trim(), q = raw.toLowerCase();
+    items = [];
+    const m = raw.match(/^(-?\d+(?:[.,]\d+)?)[\s,;]+(-?\d+(?:[.,]\d+)?)$/);
+    if (m) {
+      const lat = parseFloat(m[1].replace(',', '.')), lon = parseFloat(m[2].replace(',', '.'));
+      if (Math.abs(lat) <= 90 && Math.abs(lon) <= 360) items.push({ pin: true, lat, lon, label: `${lat}, ${lon}` });
+    }
+    if (q.length >= 2) {
+      const all = [...state.live.map(s => ({ o: s, name: `${s.en} ${s.ru}`.toLowerCase(), w: 2e6 })), ...state.sites.map(s => ({ o: s, name: `${s.en} ${s.ru}`.toLowerCase(), w: 1e6 })),
+                   ...state.places.map(p => ({ o: p, name: p.n.toLowerCase(), w: p.d }))];
+      items.push(...all.filter(x => x.name.includes(q))
+        .sort((x, y) => (y.name.startsWith(q) - x.name.startsWith(q)) || (y.w - x.w)).slice(0, 8).map(x => x.o));
+    }
+    list.innerHTML = items.map((o, i) =>
+      `<li data-i="${i}">${ico('pin')}<b>${nameOf(o)}</b><small>${o.n ? o.t : o.kind ? T().kind[o.kind] : T().pinSub}</small></li>`).join('');
+    // Список «плавает» над колонкой (fixed), иначе его обрежет её прокрутка.
+    const r = input.closest('.sfield').getBoundingClientRect(), wide = list.id === 'found';
+    list.style.left = (wide ? r.left - 46 : r.left) + 'px';
+    list.style.top = (r.bottom + 6) + 'px';
+    list.style.width = (wide ? r.width + 46 + 88 : r.width) + 'px';
+    list.style.display = items.length ? 'block' : 'none';
+  };
+  const pick = i => { const o = items[i]; if (!o) return; list.style.display = 'none'; onPick(o); };
+  input.addEventListener('input', fill);
+  input.addEventListener('focus', () => { if (input.value.trim().length >= 2) fill(); });
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') { fill(); pick(0); } if (e.key === 'Escape') list.style.display = 'none'; });
+  list.addEventListener('mousedown', e => { const li = e.target.closest('li'); if (li) { e.preventDefault(); pick(+li.dataset.i); input.blur(); } });
+}
+function flyToObj(o) {
+  const h = Math.min(Math.max((o.d || 5) * 1000 * 4, 60000), RADIUS[state.body] * 3);
+  viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(o.lon, o.lat, h, ell), duration: 1.6 });
+}
+attachSearch($('search'), $('found'), o => {
+  $('search').value = nameOf(o); $('clearSearch').hidden = false;
+  showCard(o); flyToObj(o);
+});
+for (const k of ['a', 'b']) {
+  const K = k.toUpperCase();
+  attachSearch($('in' + K), $('found' + K), o => {
+    state.focus = null;
+    setPoint(k, { lat: o.lat, lng: o.lon, name: nameOf(o) });
+    if (!(state.a && state.b)) flyToObj(o);
+  });
+  $('in' + K).addEventListener('focus', () => { state.focus = k; $('in' + K).select(); });
+}
+$('search').addEventListener('input', () => { $('clearSearch').hidden = !$('search').value; });
+$('clearSearch').addEventListener('click', () => { $('search').value = ''; $('clearSearch').hidden = true; $('found').style.display = 'none'; closeCard(); });
+document.addEventListener('click', e => {
+  if (!e.target.closest('.sfield')) document.querySelectorAll('.sugg').forEach(l => l.style.display = 'none');
+  if (!e.target.closest('#menu, #menuBtn')) $('menu').style.display = 'none';
+  if (!e.target.closest('#layerPop, #layerBtn')) $('layerPop').style.display = 'none';
+});
+
+// ---------------------------------------------------------------- управление
+function seg(id, key, after) {
+  $(id).addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b || state[key] === b.dataset.v) return;
+    [...$(id).children].forEach(x => x.classList.toggle('on', x === b));
+    state[key] = b.dataset.v; after();
+  });
+}
+seg('bodySeg', 'body', () => {
+  resetState(); closeCard(); $('search').value = ''; $('clearSearch').hidden = true; createViewer();
+});
+seg('layerSeg', 'layer', () => { setTiles(); syncLayerBtn(); });
+$('langSeg').addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b || b.dataset.v === lang) return;
+  lang = b.dataset.v;
+  try { localStorage.setItem('rbe-lang', lang); } catch {}
+  applyLang(); await loadMeta(); buildPlaces();
+  if (state.sel) showCard(state.sel);
+  refresh(false);
+});
+
+// Плитка «Слои» показывает тот слой, на который можно переключиться (как в Google Maps).
+function syncLayerBtn() {
+  const other = state.layer === 'photo' ? 'relief' : 'photo';
+  $('layerBtn').style.setProperty('--tile', other === 'photo'
+    ? 'linear-gradient(135deg,#6b4630,#b98259 50%,#4a3020)'
+    : 'linear-gradient(135deg,#2c5fa8,#52a85a 35%,#e8d35a 65%,#c0452f)');
+  $('layerBtnT').textContent = T().layers;
+}
+$('layerBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  const p = $('layerPop'); p.style.display = p.style.display === 'block' ? 'none' : 'block';
+});
+$('menuBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  const m = $('menu'); m.style.display = m.style.display === 'block' ? 'none' : 'block';
+});
+$('sitesChip').addEventListener('click', () => { $('sitesOn').checked = !$('sitesOn').checked; $('sitesOn').dispatchEvent(new Event('change')); });
+$('sitesOn').addEventListener('change', () => { $('sitesChip').classList.toggle('on', $('sitesOn').checked); buildPlaces(); });
+$('names').addEventListener('change', buildPlaces);
+
+function syncViewBtn() {
+  $('view3d').textContent = state.view === '2d' ? '3D' : '2D';
+  $('view3d').title = state.view === '2d' ? T().toGlobe : T().toFlat;
+}
+$('view3d').addEventListener('click', () => {
+  state.view = state.view === '2d' ? '3d' : '2d';
+  state.view === '2d' ? viewer.scene.morphTo2D(0.8) : viewer.scene.morphTo3D(0.8);
+  syncViewBtn();
+});
+function zoom(dir) {
+  const c = viewer.camera, h = c.positionCartographic.height;
+  if (dir > 0) c.zoomIn(Math.max(0, Math.min(h * 0.5, h - 5000))); else c.zoomOut(h);
+  viewer.scene.requestRender();
+}
+$('zin').addEventListener('click', () => zoom(1));
+$('zout').addEventListener('click', () => zoom(-1));
+
+const fmtLL = p => `${Math.abs(p.lat).toFixed(3)}° ${p.lat >= 0 ? T().N : T().S}, ` +
+                   `${Math.abs(p.lng).toFixed(3)}° ${p.lng >= 0 ? T().E : T().W}`;
+
+async function updateLight() {
+  const v = viewer, on = $('light').checked;
+  v.scene.globe.enableLighting = false;
+  v.scene.requestRender();
+  if (!on) return;
+  try {
+    const q = new URLSearchParams({ body: state.body }); if (startISO()) q.set('start', startISO());
+    const s = await (await fetch('/api/sun?' + q)).json();
+    if (v !== viewer || !$('light').checked) return;
+    const up = Cesium.Cartesian3.normalize(Cesium.Cartesian3.fromDegrees(s.lon, s.lat, 0, ell), new Cesium.Cartesian3());
+    v.scene.light = new Cesium.DirectionalLight({ direction: Cesium.Cartesian3.negate(up, new Cesium.Cartesian3()), intensity: 2.5 });
+    v.scene.globe.enableLighting = true;
+    v.scene.requestRender();
+  } catch {}
+}
+const startISO = () => $('start').value ? $('start').value + ':00Z' : '';
+
+function resetState() {
+  state.a = state.b = null; state.req++; lines = []; mk.a = mk.b = null; stopEnts = []; state.results = null; pinEnt = null;
+  $('result').hidden = true; setStatus(''); showPts(); syncHint();
+}
+function clearAll() {
+  [mk.a, mk.b, ...lines, ...stopEnts].forEach(e => e && viewer.entities.remove(e));
+  resetState(); viewer.scene.requestRender();
+}
+function showPts() {
+  for (const k of ['a', 'b']) {
+    const el = $('in' + k.toUpperCase());
+    if (document.activeElement !== el) el.value = state[k] ? (state[k].name || fmtLL(state[k])) : '';
+  }
+}
+function setStatus(t, err) { $('status').textContent = t; $('status').classList.toggle('err', !!err); }
+
+$('profile').addEventListener('change', () => refresh(false));
+$('mode').addEventListener('change', () => state.results ? render() : refresh(false));
+$('start').addEventListener('change', () => { updateLight(); refresh(false); });
+$('light').addEventListener('change', updateLight);
+$('aboutBtn').addEventListener('click', () => { $('menu').style.display = 'none'; $('about').showModal(); });
+$('srcBtn').addEventListener('click', () => $('about').showModal());
+$('aboutClose').addEventListener('click', () => $('about').close());
+
+// ---------------------------------------------------------------- маршрут
+async function refresh(fit) {
+  showPts();
+  if (!state.a || !state.b) return;
+  const id = ++state.req;
+  setStatus(T().computing);
+  // Считаем сразу все типы маршрута, чтобы их можно было сравнить.
+  const modes = [...$('mode').options].map(o => o.value);
+  const one = async mode => {
+    const q = new URLSearchParams({ body: state.body, lat1: state.a.lat, lon1: state.a.lng,
+      lat2: state.b.lat, lon2: state.b.lng, profile: $('profile').value, mode, lang });
+    if (startISO()) q.set('start', startISO());
+    const r = await fetch('/api/route?' + q), data = await r.json();
+    return r.ok ? data : { error: typeof data.detail === 'string' ? data.detail : T().routeErr };
+  };
+  let all;
+  try { all = await Promise.all(modes.map(one)); }
+  catch { if (id === state.req) setStatus(T().noServer, true); return; }
+  if (id !== state.req) return;
+  state.results = Object.fromEntries(modes.map((m, i) => [m, all[i]]));
+  render();
+  if (fit !== false) {
+    const first = state.results[$('mode').value];
+    if (first && !first.error) fitRoute(first);
+  }
+}
+
+function fitRoute(d) {
+  let w = 180, e = -180, s = 90, n = -90;
+  for (const p of d.points) { s = Math.min(s, p[0]); n = Math.max(n, p[0]); w = Math.min(w, p[1]); e = Math.max(e, p[1]); }
+  const dx = Math.max(e - w, 0.05), dy = Math.max(n - s, 0.05), side = innerWidth > 760 ? 0.9 : 0.3;
+  w = Math.max(-180, w - dx * side); e = Math.min(180, e + dx * 0.3);
+  s = Math.max(-88, s - dy * 0.3); n = Math.min(88, n + dy * 0.3);
+  viewer.camera.flyTo({ destination: Cesium.Rectangle.fromDegrees(w, s, e, n), duration: 1.2 });
+}
+
+function addLine(d, main, mode) {
+  const flat = []; for (const p of d.points) flat.push(p[1], p[0]);
+  const e = viewer.entities.add({ polyline: {
+    positions: Cesium.Cartesian3.fromDegreesArray(flat, ell), width: main ? 7 : 6, arcType: Cesium.ArcType.NONE,
+    material: new Cesium.PolylineOutlineMaterialProperty({
+      color: Cesium.Color.fromCssColorString(main ? COLORS.route : COLORS.alt),
+      outlineColor: Cesium.Color.fromCssColorString('#0b1220'), outlineWidth: 2 }) } });
+  if (!main) e.altMode = mode;
+  lines.push(e);
+}
+
+/** Два маршрута считаются одним, если совпадают по длине, времени и форме линии (отклонение меньше ~150 м). */
+function sameRoute(a, b) {
+  if (Math.abs(a.distance_m - b.distance_m) > Math.max(30, 0.01 * a.distance_m)) return false;
+  const ta = a.plan ? a.plan.total_h : a.time_s / 3600, tb = b.plan ? b.plan.total_h : b.time_s / 3600;
+  if (Math.abs(ta - tb) > Math.max(0.02, 0.02 * ta)) return false;
+  const R = RADIUS[state.body], rad = Math.PI / 180, at = (pts, f) => pts[Math.min(pts.length - 1, Math.round(f * (pts.length - 1)))];
+  let worst = 0;
+  for (let i = 0; i <= 24; i++) {
+    const p = at(a.points, i / 24), q = at(b.points, i / 24);
+    const dy = (p[0] - q[0]) * rad * R, dx = (p[1] - q[1]) * rad * R * Math.cos(p[0] * rad);
+    worst = Math.max(worst, Math.hypot(dx, dy));
+  }
+  return worst < Math.max(150, 0.02 * a.distance_m);
+}
+/** Варианты маршрута без повторов: [{ modes: ['fast', 'eco'], d }]. */
+function routeGroups() {
+  const groups = [];
+  for (const [m, d] of Object.entries(state.results)) {
+    if (!d || d.error) continue;
+    const g = groups.find(x => sameRoute(x.d, d));
+    if (g) g.modes.push(m); else groups.push({ modes: [m], d });
+  }
+  return groups;
+}
+function render() {
+  viewer.scene.requestRender();
+  lines.forEach(e => viewer.entities.remove(e)); lines = [];
+  stopEnts.forEach(e => viewer.entities.remove(e)); stopEnts = [];
+  const mode = $('mode').value, cur = state.results[mode];
+  if (!cur || cur.error) { $('result').hidden = true; setStatus(cur ? cur.error : '', true); return; }
+  const groups = routeGroups();
+  const curGroup = groups.find(g => g.modes.includes(mode));
+  for (const g of groups) if (g !== curGroup) addLine(g.d, false, g.modes[0]);      // одинаковые маршруты рисуем один раз
+  addLine(cur, true);
+  // Маркеры A и B рисуем поверх линий.
+  for (const k of ['a', 'b']) if (mk[k]) { viewer.entities.remove(mk[k]); mk[k] = null; placeMarker(k); }
+  const txt = Object.fromEntries([...$('mode').options].map(o => [o.value, o.text]));
+  const okCount = groups.reduce((n, g) => n + g.modes.length, 0);
+  $('variants').innerHTML = groups.map(g => {
+    const d = g.d, label = g.modes.length > 1 && g.modes.length === okCount ? T().bestAll : g.modes.map(m => txt[m]).join(' · ');
+    return `<button data-v="${g.modes[0]}" class="${g === curGroup ? 'on' : ''}">` +
+      `<div class="vt">${dur(d.plan ? d.plan.total_h * 3600 : d.time_s)}<span>${label}</span></div>` +
+      `<div class="vd">${km(d.distance_m)}</div></button>`;
+  }).join('');
+  draw(cur);
+}
+// Симулятор поездки: маршрут передаётся через localStorage, игра открывается поверх карты.
+$('simBtn').addEventListener('click', () => {
+  const mode = $('mode').value, d = state.results && state.results[mode]; if (!d || d.error) return;
+  try {
+    localStorage.setItem('rbe-sim-route', JSON.stringify({ body: state.body, profile: $('profile').value, mode, start: startISO(), lang, data: d }));
+  } catch (e) { alert('Storage is full'); return; }
+  $('simFrame').src = '/sim.html?t=' + Date.now(); $('simWrap').hidden = false;
+});
+window.addEventListener('message', e => { if (e.data && e.data.type === 'rbe-sim-close') { $('simWrap').hidden = true; $('simFrame').src = 'about:blank'; } });
+$('variants').addEventListener('click', e => {
+  const b = e.target.closest('button[data-v]'); if (!b) return;
+  $('mode').value = b.dataset.v; render();
+});
+
+function draw(d) {
+  $('sDist').textContent = km(d.distance_m);
+  $('sTime').textContent = dur(d.time_s);
+  $('sUp').textContent = `${num(Math.round(d.ascent_m))} ${T().m}`;
+  $('sDown').textContent = `${num(Math.round(d.descent_m))} ${T().m}`;
+  $('sSlope').textContent = d.max_slope_deg.toFixed(1) + '°';
+  $('sEnergy').textContent = (d.energy_kwh >= 100 ? num(Math.round(d.energy_kwh)) : d.energy_kwh.toFixed(1)) + ' ' + T().kwh;
+  chart('chart', d.elevation, ' ' + T().m, '#2dd4bf');
+  drawPlan(d.plan);
+  $('note').textContent = T().note(km(d.straight_m), d.resolution_m) + (d.exact ? '' : T().approx) +
+    (d.conditions ? ' ' + d.conditions.text : '');
+  $('result').hidden = false;
+  setStatus(T().done(d.compute_s));
+}
+
+const km = m => (m >= 10000 ? num(Math.round(m / 1000)) : (m / 1000).toFixed(1)) + ' ' + T().km;
+function dur(s) {
+  const h = s / 3600;
+  if (h < 1) return `${Math.round(s / 60)} ${T().min}`;
+  if (h < 48) return `${h.toFixed(1)} ${T().h}`;
+  return `${Math.floor(h / 24)} ${T().d} ${Math.round(h % 24)} ${T().h}`;
+}
+
+function drawPlan(p) {
+  $('plan').hidden = !p;
+  if (!p) return;
+  $('pTotal').textContent = dur(p.total_h * 3600);
+  $('pArr').textContent = p.feasible ? p.arrival_utc.replace('T', ' ').replace('Z', '') : T().none;
+  $('pTemp').textContent = p.temp_min_c === null ? T().none : `${p.temp_min_c}…${p.temp_max_c} °C`;
+  $('pNight').textContent = Math.round(p.night_share * 100) + ' %';
+  $('planWarn').textContent = p.feasible ? '' : p.reason;
+  $('stops').innerHTML = p.summary.map(s =>
+    `<li><i style="background:${STOP_COLORS[s.kind]}"></i>${s.title}<span>${s.count} × · ${dur(s.hours * 3600)}</span></li>`).join('') ||
+    `<li>${T().noStops}</li>`;
+  chart('tchart', p.series.map(x => [x[0], x[1]]), ' °C', '#ffb020');
+  const hh = Math.floor(p.start_local_time), mm = String(Math.floor((p.start_local_time % 1) * 60)).padStart(2, '0');
+  $('note2').textContent = T().startInfo(`${hh}:${mm}`,
+      p.start_sun_elev > 0 ? T().sunUp(p.start_sun_elev) : T().sunDown(p.start_sun_elev), p.start_temp_c) +
+    (p.sun.ls !== null ? T().season(p.sun.ls) : '') +
+    (p.battery_end_kwh !== null ? T().battery(p.battery_end_kwh) : '') +
+    (p.stops_total > 24 ? T().someStops(p.stops_total) : '');
+  $('risks').innerHTML = p.risks.map(r =>
+    `<li><b>${r.title}</b><span class="lvl ${r.level}">${T().lvl[r.level]}</span><br>${r.text}</li>`).join('');
+  // На карте не больше 24 точек остановок, иначе они закрывают линию маршрута.
+  const step = Math.ceil(p.stops.length / 24) || 1;
+  for (const s of p.stops.filter((_, i) => i % step === 0)) {
+    stopEnts.push(viewer.entities.add({
+      position: Cesium.Cartesian3.fromDegrees(s.lon, s.lat, 0, ell),
+      point: { pixelSize: 7, color: Cesium.Color.fromCssColorString(STOP_COLORS[s.kind]),
+               outlineColor: Cesium.Color.WHITE, outlineWidth: 1 } }));
+  }
+}
+
+function chart(id, el, unit, color) {
+  const svg = $(id), W = 300, H = 110, pad = 14;
+  if (!el.length) { svg.innerHTML = ''; return; }
+  const xs = el.map(p => p[0]), ys = el.map(p => p[1]);
+  const x1 = Math.max(...xs) || 1, y0 = Math.min(...ys), y1 = Math.max(...ys), dy = (y1 - y0) || 1;
+  const X = x => (x / x1) * W, Y = y => H - pad - ((y - y0) / dy) * (H - 2 * pad);
+  const pts = el.map(p => `${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join(' ');
+  svg.innerHTML =
+    `<polygon points="0,${H} ${pts} ${W},${H}" fill="${color}22"/>` +
+    `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.5" vector-effect="non-scaling-stroke"/>` +
+    `<text x="2" y="10" fill="#94a3c0" font-size="9">${num(Math.round(y1))}${unit}</text>` +
+    `<text x="2" y="${H - 2}" fill="#94a3c0" font-size="9">${num(Math.round(y0))}${unit}</text>`;
+}
+
+// Способ передвижения: ряд значков как «пешком / на машине» в Google Maps.
+function profCap() {
+  const p = profiles[$('profile').value];
+  $('profCap').textContent = p ? `${p.title} · ${T().upTo} ${p.max_slope}°` : '';
+}
+function buildProfiles() {
+  $('profSeg').innerHTML = Object.entries(profiles).map(([k, p]) =>
+    `<button data-v="${k}" title="${p.title}" class="${k === $('profile').value ? 'on' : ''}">${ico(PROF_ICON[k] || 'rover_crew')}</button>`).join('');
+  profCap();
+}
+$('profSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  $('profile').value = b.dataset.v; buildProfiles(); refresh(false);
+});
+
+async function loadMeta() {
+  try {
+    const m = await (await fetch('/api/meta?lang=' + lang)).json();
+    const prof = pendingRestore.p || $('profile').value || 'rover_crew', mode = pendingRestore.m || $('mode').value || 'fast';
+    profiles = m.profiles;
+    $('profile').innerHTML = Object.entries(m.profiles).map(([k, p]) =>
+      `<option value="${k}">${p.title}</option>`).join('');
+    $('profile').value = prof;
+    $('mode').innerHTML = Object.entries(m.modes).map(([k, t]) => `<option value="${k}">${t}</option>`).join('');
+    $('mode').value = mode;
+    buildProfiles();
+    const missing = ['mars', 'moon'].filter(b => !m.bodies[b]);
+    if (missing.length) setStatus(T().demMissing + missing.map(b => T()[b]).join(', ') + '.', true);
+  } catch { setStatus(T().noRoutes, true); }
+}
+
+// Игроки, которые сейчас в симуляторе: отметки на карте, обновляются каждые 4 секунды.
+let playerEnts = new Map();
+async function pollPlayers() {
+  try {
+    const r = await (await fetch('/api/players?body=' + state.body)).json();
+    state.players = r.players; const chip = $('onlineChip'); chip.hidden = !r.online; chip.textContent = '🌐 ' + T().playersOnline(r.online);
+    if (!viewer) return;
+    const seen = new Set();
+    for (const p of r.players) {
+      seen.add(p.id); const pos = Cesium.Cartesian3.fromDegrees(p.lon, p.lat, 0, ell);
+      let e = playerEnts.get(p.id);
+      if (!e) { e = viewer.entities.add({ position: pos, point: { pixelSize: 11, color: Cesium.Color.fromCssColorString(`hsl(${p.h},85%,60%)`), outlineColor: Cesium.Color.WHITE, outlineWidth: 2 },
+        label: { text: p.n, font: '600 12px sans-serif', fillColor: Cesium.Color.WHITE, outlineColor: Cesium.Color.BLACK, outlineWidth: 3, style: Cesium.LabelStyle.FILL_AND_OUTLINE, pixelOffset: new Cesium.Cartesian2(0, -18) } }); playerEnts.set(p.id, e); }
+      else e.position = pos;
+    }
+    for (const [id, e] of [...playerEnts]) if (!seen.has(id)) { viewer.entities.remove(e); playerEnts.delete(id); }
+    viewer.scene.requestRender();
+  } catch {}
+}
+setInterval(() => { if (!document.hidden) pollPlayers(); }, 4000);
+
+// ---------------------------------------------------------------- память состояния: адрес страницы (#...) и localStorage
+let pendingRestore = {};
+function mapSnapshot() {
+  const o = { b: state.body, l: state.layer, o: state.overlay || '', v: state.view, p: $('profile').value || '', m: $('mode').value || '' };
+  if (viewer) { const c = viewer.camera.positionCartographic; if (c) o.c = [Cesium.Math.toDegrees(c.longitude).toFixed(3), Cesium.Math.toDegrees(c.latitude).toFixed(3), Math.round(c.height)].join(','); }
+  if (state.a) o.a = [state.a.lat, state.a.lng, state.a.name || ''].join('|');
+  if (state.b) o.z = [state.b.lat, state.b.lng, state.b.name || ''].join('|');
+  return o;
+}
+function readSaved() {
+  const h = location.hash.slice(1);
+  if (h && !h.startsWith('goto=') && h.includes('=')) return Object.fromEntries(new URLSearchParams(h));
+  if (h.startsWith('goto=')) return null;
+  try { return JSON.parse(localStorage.getItem('rbe-map-state') || 'null'); } catch { return null; }
+}
+function restoreBeforeViewer() {
+  const s = readSaved(); if (!s) return null;
+  if (s.b === 'mars' || s.b === 'moon') state.body = s.b;
+  if (s.l && LAYERS[state.body][s.l]) state.layer = s.l;
+  if (s.o && (OVERLAYS[state.body] || []).some(x => x.k === s.o)) state.overlay = s.o;
+  if (s.v === '2d' || s.v === '3d') state.view = s.v;
+  pendingRestore = { p: s.p, m: s.m };
+  for (const [id, key] of [['bodySeg', 'body'], ['layerSeg', 'layer']]) [...$(id).children].forEach(x => x.classList.toggle('on', x.dataset.v === state[key]));
+  return s;
+}
+function restoreAfterMeta(s) {
+  if (!s) return;
+  const pt = v => { const a = String(v || '').split('|'); const la = parseFloat(a[0]), lo = parseFloat(a[1]); return Number.isFinite(la) && Number.isFinite(lo) ? { lat: la, lng: lo, name: a[2] || '' } : null; };
+  const a = pt(s.a), z = pt(s.z);
+  if (a || z) { openDir(); if (a) setPoint('a', a); if (z) setPoint('b', z); return; }
+  const c = String(s.c || '').split(',').map(Number);
+  if (c.length === 3 && c.every(Number.isFinite)) viewer.camera.setView({ destination: Cesium.Cartesian3.fromDegrees(c[0], c[1], c[2], ell) });
+}
+let lastSnap = '';
+setInterval(() => {
+  if (!viewer) return;
+  const o = mapSnapshot(), q = new URLSearchParams(o).toString(); if (q === lastSnap) return; lastSnap = q;
+  try { if (!location.hash.startsWith('#goto=')) history.replaceState(null, '', '#' + q); localStorage.setItem('rbe-map-state', JSON.stringify(o)); } catch {}
+}, 1000);
+
+// Hand-over between the map and the Analog Atlas (Earth analogs of the Moon and Mars sites).
+async function openAtlas() {
+  let lat, lon;
+  if (state.sel && state.sel.lat != null) { lat = state.sel.lat; lon = state.sel.lon; }
+  else { const c = Cesium.Cartographic.fromCartesian(viewer.camera.positionWC, ell); lat = Cesium.Math.toDegrees(c.latitude); lon = Cesium.Math.toDegrees(c.longitude); }
+  let id = '';
+  try {
+    const ts = (await fetch('/atlas/data/targets.json').then(r => r.json())).filter(t => t.body === state.body);
+    const d = t => { const a = Math.PI / 180, x = Math.sin((t.lat - lat) * a / 2) ** 2 + Math.cos(lat * a) * Math.cos(t.lat * a) * Math.sin((t.lon - lon) * a / 2) ** 2; return x; };
+    id = ts.sort((p, q) => d(p) - d(q))[0].id;
+  } catch (e) {}
+  location.href = '/atlas/' + (id ? '#' + id : '');
+}
+$('atlasBtn').addEventListener('click', openAtlas);
+async function applyGoto() {
+  const m = /goto=(moon|mars),(-?[\d.]+),(-?[\d.]+)/.exec(location.hash); if (!m) return;
+  if (m[1] !== state.body) { const b = document.querySelector(`#bodySeg button[data-v="${m[1]}"]`); if (b) b.click(); await new Promise(r => setTimeout(r, 1500)); }
+  flyToObj({ lat: +m[2], lon: +m[3], d: 60 });
+}
+async function init() {
+  $('start').value = new Date().toISOString().slice(0, 16);
+  const saved = restoreBeforeViewer();
+  applyLang();
+  createViewer();
+  await loadMeta();
+  restoreAfterMeta(saved);
+  applyGoto();
+}
+init();
+</script>
+</body>
+</html>
