@@ -1,17 +1,17 @@
 # Developed with assistance from Claude Code (Anthropic), an AI coding assistant. See SI_DISCLOSURE.md.
-"""Подробный рельеф для симулятора: кусок поверхности вокруг участка маршрута.
+"""Detailed terrain for the simulator: a piece of surface around a stage of the route.
 
-Основа — настоящая карта высот NASA (MOLA для Марса, LOLA для Луны), прочитанная из
-исходного GeoTIFF в его родном разрешении (463 м и 118 м на пиксель) и интерполированная
-бикубически. Этого мало для езды, поэтому сверху добавляются:
-  * мелкий рельеф (фрактальный шум, шаг от 128 м до 8 м, сильнее на крутых склонах);
-  * кратеры диаметром 16-800 м. Их число подчиняется степенному закону N(>D) ~ D^-2,
-    как у реальных поверхностей Луны и Марса; глубина ~0,2 D у свежих, меньше у старых.
-Всё детерминировано: положение кратера зависит только от широты и долготы, поэтому
-соседние куски и повторный заезд дают одну и ту же местность.
+The base is the real NASA elevation map (MOLA for Mars, LOLA for the Moon), read from the
+original GeoTIFF at its native resolution (463 m and 118 m per pixel) and interpolated
+bicubically. That is not enough for driving, so on top of it we add:
+  * fine relief (fractal noise, step from 128 m to 8 m, stronger on steep slopes);
+  * craters 16-800 m in diameter. Their number follows the power law N(>D) ~ D^-2,
+    like on real lunar and Martian surfaces; depth ~0.2 D for fresh craters, less for old ones.
+Everything is deterministic: the position of a crater depends only on latitude and longitude, so
+neighbouring pieces and a repeated drive give the same terrain.
 
-Куски строятся в локальной системе «восток-север-вверх» (ENU) с началом в точке
-(lat0, lon0); кривизна планеты учитывается точно.
+Pieces are built in a local "east-north-up" (ENU) frame with the origin at the point
+(lat0, lon0); the curvature of the planet is taken into account exactly.
 """
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ SRC = {
 }
 SEED = {"mars": 7, "moon": 3}
 MAX_CELLS = 2_100_000
-SATURATION = 0.012          # доля геометрического насыщения кратерами
+SATURATION = 0.012          # fraction of geometric saturation by craters
 BANDS = [(16.0, 32.0), (32.0, 64.0), (64.0, 128.0), (128.0, 256.0), (256.0, 512.0), (512.0, 1024.0)]
 
 _ds: dict = {}
@@ -49,7 +49,7 @@ def _dataset(body: str):
         return _ds[body]
 
 
-# ---------------------------------------------------------------- геометрия ENU
+# ---------------------------------------------------------------- ENU geometry
 
 def basis(lat0: float, lon0: float):
     p, l = math.radians(lat0), math.radians(lon0)
@@ -60,7 +60,7 @@ def basis(lat0: float, lon0: float):
 
 
 def enu_to_latlon(radius: float, lat0: float, lon0: float, x, y):
-    """Точка на сфере над плоскостью (x, y) -> широта и долгота в градусах."""
+    """A point on the sphere above the plane (x, y) -> latitude and longitude in degrees."""
     e, n, u = basis(lat0, lon0)
     up = np.sqrt(np.maximum(radius ** 2 - x ** 2 - y ** 2, 1.0))
     v = x[..., None] * e + y[..., None] * n + up[..., None] * u
@@ -76,7 +76,7 @@ def latlon_to_enu(radius: float, lat0: float, lon0: float, lat, lon):
     return radius * (v @ e), radius * (v @ n), radius * (v @ u - 1.0)
 
 
-# ---------------------------------------------------------------- шум и хеши
+# ---------------------------------------------------------------- noise and hashes
 
 def _hash(ix, iy, seed: int):
     with np.errstate(over="ignore"):
@@ -104,10 +104,10 @@ def value_noise(X, Y, wavelength: float, seed: int):
     return (a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy) * 2.0 - 1.0
 
 
-# ---------------------------------------------------------------- карта высот NASA
+# ---------------------------------------------------------------- NASA elevation map
 
 def _read(ds, r0: int, r1: int, c0: int, c1: int) -> np.ndarray:
-    """Окно строк r0..r1 и столбцов c0..c1; долгота замкнута (столбцы могут выходить за 0..W)."""
+    """Window of rows r0..r1 and columns c0..c1; longitude wraps around (columns may go beyond 0..W)."""
     w = ds.width
     parts, c = [], c0
     while c < c1:
@@ -119,7 +119,7 @@ def _read(ds, r0: int, r1: int, c0: int, c1: int) -> np.ndarray:
 
 
 def base_height(body: str, lat, lon):
-    """Высота по карте NASA (м) в точках; бикубическая интерполяция."""
+    """Elevation from the NASA map (m) at points; bicubic interpolation."""
     ds = _dataset(body)
     cfg = SRC[body]
     h, w = ds.height, ds.width
@@ -136,10 +136,10 @@ def base_height(body: str, lat, lon):
     return map_coordinates(win, [fr - r0c, fc - c0], order=3, mode="nearest")
 
 
-# ---------------------------------------------------------------- мелкий рельеф и кратеры
+# ---------------------------------------------------------------- fine relief and craters
 
 def detail(body: str, X, Y, steep):
-    """Фрактальная добавка (м). steep — крутизна фона 0..1+: на склонах рельеф мельче и резче."""
+    """Fractal addition (m). steep - background steepness 0..1+: on slopes the relief is finer and sharper."""
     cfg = SRC[body]
     out = np.zeros_like(X)
     for i, wl in enumerate((128.0, 64.0, 32.0, 16.0, 8.0)):
@@ -149,10 +149,10 @@ def detail(body: str, X, Y, steep):
 
 
 def craters(body: str, radius: float, lat0: float, lon0: float, xmin, xmax, ymin, ymax, density: float = 1.0):
-    """Список кратеров в окне (в координатах ENU): x, y, радиус R, глубина d, возраст-фактор."""
+    """List of craters in the window (in ENU coordinates): x, y, radius R, depth d, age factor."""
     cfg = SRC[body]
     out = []
-    # Окно в «глобальных» метрах X = R*lon, Y = R*lat: берём углы окна и край с запасом.
+    # The window in "global" metres X = R*lon, Y = R*lat: take the window corners and an edge with a margin.
     cx = np.array([xmin, xmax, xmin, xmax, 0.5 * (xmin + xmax)])
     cy = np.array([ymin, ymin, ymax, ymax, 0.5 * (ymin + ymax)])
     la, lo = enu_to_latlon(radius, lat0, lon0, cx, cy)
@@ -168,8 +168,8 @@ def craters(body: str, radius: float, lat0: float, lon0: float, xmin, xmax, ymin
             continue
         ii, jj = np.meshgrid(np.arange(i0, i1 + 1), np.arange(j0, j1 + 1))
         ii, jj = ii.ravel(), jj.ravel()
-        per_cell = 0.75 * k * (dlo / 1000.0) ** -2 * (s / 1000.0) ** 2        # ожидаемое число на ячейку
-        # Плотность меняется от места к месту: есть «поля кратеров» и ровные участки.
+        per_cell = 0.75 * k * (dlo / 1000.0) ** -2 * (s / 1000.0) ** 2        # expected number per cell
+        # Density varies from place to place: there are "crater fields" and flat areas.
         cxm, cym = (ii + 0.5) * s, (jj + 0.5) * s
         mod = np.clip(1.0 + 0.9 * value_noise(cxm, cym, 6000.0 + 900.0 * bi, 500 + bi), 0.15, 2.2)
         for slot in range(2):
@@ -195,7 +195,7 @@ def craters(body: str, radius: float, lat0: float, lon0: float, xmin, xmax, ymin
 
 
 def stamp(z, x0: float, y0: float, res: float, cr):
-    """Вдавливает кратеры в сетку высот z (строки вдоль y, столбцы вдоль x)."""
+    """Presses the craters into the elevation grid z (rows along y, columns along x)."""
     ny, nx = z.shape
     for cx, cy, R, depth, rim in cr:
         reach = 3.5 * R
@@ -206,12 +206,12 @@ def stamp(z, x0: float, y0: float, res: float, cr):
         xs = x0 + np.arange(i0, i1) * res - cx
         ys = y0 + np.arange(j0, j1) * res - cy
         r = np.hypot(xs[None, :], ys[:, None]) / R
-        inside = -depth * (1.0 - r ** 2) + rim * r ** 4          # чаша с валом
-        outside = rim * np.maximum(r, 1.0) ** -3.0               # выброшенный грунт
+        inside = -depth * (1.0 - r ** 2) + rim * r ** 4          # a bowl with a rim
+        outside = rim * np.maximum(r, 1.0) ** -3.0               # ejecta
         z[j0:j1, i0:i1] += np.where(r <= 1.0, inside, outside)
 
 
-# ---------------------------------------------------------------- сборка куска
+# ---------------------------------------------------------------- assembling a piece
 
 def patch(body: str, lat0: float, lon0: float, xmin: float, xmax: float, ymin: float, ymax: float,
           res: float = 4.0, density: float = 1.0) -> bytes:
@@ -227,7 +227,7 @@ def patch(body: str, lat0: float, lon0: float, xmin: float, xmax: float, ymin: f
     lat, lon = enu_to_latlon(R, lat0, lon0, gx, gy)
     h = base_height(body, lat.ravel(), lon.ravel()).reshape(ny, nx)
     h0 = float(base_height(body, np.array([lat0]), np.array([lon0]))[0])
-    # Кривизна планеты: поверхность уходит вниз от касательной плоскости.
+    # Planet curvature: the surface falls away from the tangent plane.
     curv = np.sqrt(np.maximum(R ** 2 - gx ** 2 - gy ** 2, 1.0)) - R
     gyr, gxr = np.gradient(h, res)
     steep = np.degrees(np.arctan(np.hypot(gxr, gyr))) / 12.0

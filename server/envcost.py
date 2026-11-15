@@ -1,20 +1,20 @@
 # Developed with assistance from Claude Code (Anthropic), an AI coding assistant. See SI_DISCLOSURE.md.
-"""Поправка стоимости пути на условия среды: свет, температура, радиация, бури.
+"""Correction of the path cost for environmental conditions: light, temperature, radiation, storms.
 
-Возвращает для окна сетки множитель стоимости въезда в каждую ячейку (>= 1).
+Returns, for a window of the grid, a multiplier of the cost of entering each cell (>= 1).
 
-Луна. Сутки длятся 29,5 земных суток, поэтому важно, КОГДА мы окажемся в ячейке.
-Время прибытия оценивается как расстояние от старта, делённое на среднюю скорость
-с остановками (её даёт первый проход без поправок). Если в этот момент там нельзя
-двигаться (ночь для тех, кто ездит только днём, или температура вне допуска),
-ячейка дорожает: стоять и ждать долго.
+Moon. A day lasts 29.5 Earth days, so WHEN we are in a cell matters.
+The arrival time is estimated as the distance from the start divided by the mean speed
+including stops (given by the first pass without corrections). If moving is not allowed there
+at that moment (night for those who drive only by day, or a temperature outside the limits),
+the cell becomes more expensive: standing and waiting for a long time.
 
-Марс. Сутки почти земные, поездка длиннее суток, поэтому время суток усредняется:
-считается доля суток, когда на данной широте в этот сезон можно двигаться.
-Если это окно короче рабочей смены (зимой в высоких широтах), ячейка дорожает.
+Mars. A day is almost like on Earth and the trip is longer than a day, so the time of day is averaged:
+the fraction of the day when moving is possible at the given latitude in the given season is computed.
+If this window is shorter than a working shift (in winter at high latitudes), the cell becomes more expensive.
 
-В «безопасном» режиме для экипажа на Марсе добавляются радиация (выше на
-возвышенностях) и вероятность пыльной бури (зависит от сезона и широты).
+In the "safe" mode for a crew on Mars, radiation (higher on
+highlands) and the probability of a dust storm (depends on season and latitude) are added.
 """
 from __future__ import annotations
 
@@ -26,12 +26,12 @@ import numpy as np
 from environment import DAY_HOURS, julian_date, sun_state
 from planner import RULES
 
-BLOCKED = 3.0        # во сколько раз дороже ячейка, где в момент прибытия нельзя двигаться
-DARK_SOLAR = 1.3     # штраф темноты для тех, кто заряжается от Солнца
+BLOCKED = 3.0        # how many times more expensive a cell is where moving is not allowed at the arrival moment
+DARK_SOLAR = 1.3     # darkness penalty for those who charge from the Sun
 
 
 def moon_cond_np(lat, h):
-    """Высота Солнца (синус) и температура (°C) на Луне; h = часовой угол, градусы."""
+    """Sun elevation (sine) and temperature (°C) on the Moon; h = hour angle, degrees."""
     phi = np.radians(lat)
     sin_el = np.cos(phi) * np.cos(np.radians(h))
     night = np.maximum(40.0, 95.0 * np.maximum(np.cos(phi), 1e-3) ** 0.15)
@@ -41,7 +41,7 @@ def moon_cond_np(lat, h):
 
 
 def mars_cond_np(lat, local, sun):
-    """Высота Солнца (синус) и температура (°C) на Марсе; local = местное время, часы."""
+    """Sun elevation (sine) and temperature (°C) on Mars; local = local time, hours."""
     phi, dec = np.radians(lat), math.radians(sun["lat"])
     sin_el = np.sin(phi) * math.sin(dec) + np.cos(phi) * math.cos(dec) * np.cos(np.radians((local - 12.0) * 15.0))
     cz = np.cos(np.radians(lat - sun["lat"]))
@@ -55,8 +55,8 @@ def mars_cond_np(lat, local, sun):
 
 
 def _mars_availability(lat, sun, rules) -> np.ndarray:
-    """Сколько часов в сутки на широте lat реально можно двигаться: окно подходящих
-    условий, но не больше длины смены (длинный день сверх смены ничего не даёт)."""
+    """How many hours per day at latitude lat moving is really possible: the window of suitable
+    conditions, but not more than the shift length (a long day beyond the shift gives nothing)."""
     local = (np.arange(48) / 2.0)[None, :]
     sin_el, temp = mars_cond_np(np.asarray(lat, dtype=float)[:, None], local, sun)
     ok = (temp >= rules.t_min) & (temp <= rules.t_max)
@@ -71,11 +71,11 @@ def make_env(body: str, radius: float, profile: str, mode: str, start: datetime,
     sun0 = sun_state(body, julian_date(start))
 
     if body == "moon":
-        drift = 360.0 / DAY_HOURS["moon"]            # градусов в час: Солнце уходит на запад
+        drift = 360.0 / DAY_HOURS["moon"]            # degrees per hour: the Sun moves west
         p0, l0 = math.radians(lat0), math.radians(lon0)
 
         def env(lat, lon, elev):
-            """lat, lon, elev: массивы согласованной формы (сетка или точки вдоль линии)."""
+            """lat, lon, elev: arrays of consistent shape (a grid or points along a line)."""
             la, lo = np.radians(lat), np.radians(lon)
             cosd = np.sin(p0) * np.sin(la) + np.cos(p0) * np.cos(la) * np.cos(lo - l0)
             hours = radius * np.arccos(np.clip(cosd, -1.0, 1.0)) / speed_m_per_h

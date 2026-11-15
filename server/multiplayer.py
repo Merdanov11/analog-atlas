@@ -1,18 +1,18 @@
 # Developed with assistance from Claude Code (Anthropic), an AI coding assistant. See SI_DISCLOSURE.md.
-"""Онлайн-режим симулятора: комнаты по небесным телам, обмен состоянием игроков в реальном времени.
+"""Online mode of the simulator: rooms per celestial body, real-time exchange of player state.
 
-Протокол (JSON по WebSocket):
-  клиент -> сервер
-    {t:"hello", name, kind, body}                       вход в комнату
-    {t:"s", lat, lon, alt, hd, p, r, v, sa, st, b, cr}   состояние (10 раз в секунду)
-    {t:"chat", text}                                    сообщение всем в комнате
-    {t:"ping", lat, lon}                                метка на карте для всех
-    {t:"give", to, amt}                                 передать запас энергии игроку
-  сервер -> клиент
+Protocol (JSON over WebSocket):
+  client -> server
+    {t:"hello", name, kind, body}                       join a room
+    {t:"s", lat, lon, alt, hd, p, r, v, sa, st, b, cr}   state (10 times per second)
+    {t:"chat", text}                                    message to everyone in the room
+    {t:"ping", lat, lon}                                map marker for everyone
+    {t:"give", to, amt}                                 give some of your energy to a player
+  server -> client
     {t:"welcome", id, online, hue}   {t:"join"|"leave", ...}   {t:"p", l:[...]}   {t:"chat"|"ping"|"give", ...}
 
-Сервер ничего не вычисляет по физике: он только пересылает состояние и ограничивает частоту и размер сообщений.
-Каждый клиент сам моделирует свою технику, поэтому игроки видят друг друга и толкаются, как в обычной сетевой игре.
+The server computes no physics: it only relays state and limits message rate and size.
+Every client simulates its own vehicle, so players see each other and bump into each other like in an ordinary online game.
 """
 from __future__ import annotations
 
@@ -36,8 +36,8 @@ class Player:
         self.ws, self.id, self.name, self.kind, self.body = ws, pid, name, kind, body
         self.hue = random.randint(0, 359)
         self.state: dict = {}
-        self.last = 0.0           # время последнего состояния
-        self.sent = 0.0           # время последней отправки состояния другим
+        self.last = 0.0           # time of the last state
+        self.sent = 0.0           # time the state was last sent to the others
         self.last_chat = 0.0
         self.msgs = 0
         self.win = time.time()
@@ -56,7 +56,7 @@ class Hub:
         self.rooms: dict[str, dict[str, Player]] = {"moon": {}, "mars": {}}
         self.task: asyncio.Task | None = None
 
-    # ---------------------------------------------------------------- утилиты
+    # ---------------------------------------------------------------- helpers
     @staticmethod
     def clean_name(raw) -> str:
         s = re.sub(r"[^\w .\-+]", "", str(raw or ""), flags=re.UNICODE).strip()[:18]
@@ -95,7 +95,7 @@ class Hub:
     def online(self, body: str | None = None) -> int:
         return sum(len(r) for b, r in self.rooms.items() if not body or b == body)
 
-    # ---------------------------------------------------------------- цикл рассылки
+    # ---------------------------------------------------------------- broadcast loop
     def start(self):
         if self.task is None or self.task.done():
             self.task = asyncio.create_task(self.loop())
@@ -117,7 +117,7 @@ class Hub:
                     except Exception:
                         pass
 
-    # ---------------------------------------------------------------- соединение
+    # ---------------------------------------------------------------- connection
     async def handle(self, ws: WebSocket):
         await ws.accept()
         self.start()
@@ -150,7 +150,7 @@ class Hub:
                 if now - me.win > 1.0:
                     me.win, me.msgs = now, 0
                 me.msgs += 1
-                if me.msgs > 40:                       # не больше 40 сообщений в секунду
+                if me.msgs > 40:                       # at most 40 messages per second
                     continue
                 if t == "s":
                     lat, lon = self.num(m.get("lat"), -90, 90), self.num(m.get("lon"), -720, 720)

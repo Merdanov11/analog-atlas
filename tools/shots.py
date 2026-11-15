@@ -1,6 +1,6 @@
 # Developed with assistance from Claude Code (Anthropic), an AI coding assistant. See SI_DISCLOSURE.md.
-"""Снимки экрана для презентации: python tools/shots.py [имя ...]
-Запускает Chrome без окна (CDP) и снимает карту и симулятор в 1920x1080 / мобильном размере. Сервер должен работать на :8000."""
+"""Screenshots for the presentation: python tools/shots.py [name ...]
+Starts headless Chrome (CDP) and captures the map and the simulator at 1920x1080 / mobile size. The server must be running on :8000."""
 import asyncio, base64, json, subprocess, sys, tempfile, time, urllib.request
 import websockets
 
@@ -89,7 +89,7 @@ async def main(names):
         proc.terminate()
 
 async def climb(p, agl, speed=0, timeout=120):
-    """Взлетает до высоты agl и (если speed>0) разгоняется вперёд; потом возвращает обычное время."""
+    """Climbs to height agl and (if speed>0) accelerates forward; then restores normal time."""
     await keys(p, [("Space", True)]); await p.js("window.__sim.warp(6)")
     await p.until(f"window.__sim.rover.agl() > {agl}", timeout); await keys(p, [("Space", False)])
     if speed:

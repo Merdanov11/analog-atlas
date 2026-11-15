@@ -1,14 +1,14 @@
 # Developed with assistance from Claude Code (Anthropic), an AI coding assistant. See SI_DISCLOSURE.md.
-"""Поиск маршрута по поверхности Луны и Марса.
+"""Route search over the surface of the Moon and Mars.
 
-Идея:
-  1. Поверхность = сетка ячеек (широта/долгота) с высотой и средним уклоном.
-  2. Между соседними ячейками (8 направлений) считается стоимость перехода:
-     время, энергия и штраф за риск. Слишком крутые переходы запрещены.
-  3. Алгоритм Дейкстры находит путь с минимальной суммарной стоимостью.
-     «Обходить кратер или ехать насквозь» решается само: что дешевле.
-  4. Чтобы длинные маршруты считались быстро, поиск идёт от грубой сетки
-     к подробной: сначала общий путь, потом уточнение в коридоре вокруг него.
+The idea:
+  1. The surface is a grid of cells (latitude/longitude) with elevation and mean slope.
+  2. A transition cost is computed between neighbouring cells (8 directions):
+     time, energy and a risk penalty. Transitions that are too steep are forbidden.
+  3. Dijkstra's algorithm finds the path with the smallest total cost.
+     "Go around the crater or straight through it" is decided by itself: whichever is cheaper.
+  4. To make long routes fast, the search goes from a coarse grid
+     to a detailed one: first a rough path, then refinement in a corridor around it.
 """
 from __future__ import annotations
 
@@ -23,9 +23,9 @@ from scipy.sparse.csgraph import dijkstra
 
 GRIDS = Path(__file__).resolve().parent.parent / "data" / "grids"
 
-MAX_NODES = 1_000_000   # максимум ячеек в окне грубого поиска
-CHUNK = 96              # длина куска пути при уточнении (в грубых ячейках)
-HALF = 2                # полуширина коридора уточнения (в грубых ячейках)
+MAX_NODES = 1_000_000   # maximum number of cells in the coarse search window
+CHUNK = 96              # length of a path piece when refining (in coarse cells)
+HALF = 2                # half-width of the refinement corridor (in coarse cells)
 DIRS = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
 
 
@@ -33,14 +33,14 @@ DIRS = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
 class Profile:
     key: str
     title: str
-    speed_kmh: float    # скорость по ровной поверхности
-    max_slope: float    # предельный уклон, градусы
-    k_up: float         # насколько подъём замедляет
-    k_down: float       # насколько спуск замедляет
-    k_rough: float      # насколько неровность местности замедляет
-    mass: float         # кг (с грузом / скафандром)
-    crr: float          # сопротивление движению
-    p_base: float       # Вт: постоянный расход (жизнеобеспечение, электроника)
+    speed_kmh: float    # speed on flat ground
+    max_slope: float    # maximum slope, degrees
+    k_up: float         # how much climbing slows the traveller
+    k_down: float       # how much descending slows the traveller
+    k_rough: float      # how much rough terrain slows the traveller
+    mass: float         # kg (with cargo / spacesuit)
+    crr: float          # rolling resistance
+    p_base: float       # W: constant consumption (life support, electronics)
 
     @property
     def speed(self) -> float:
@@ -52,7 +52,7 @@ PROFILES = {
         Profile("walker", "walker", 3.0, 25.0, 3.5, 2.0, 2.0, 200.0, 0.25, 300.0),
         Profile("rover_crew", "rover_crew", 10.0, 20.0, 3.0, 1.0, 3.0, 1500.0, 0.15, 1000.0),
         Profile("rover_robot", "rover_robot", 0.15, 15.0, 3.0, 1.0, 3.0, 900.0, 0.15, 100.0),
-        # Дрон летит по дуге большого круга, рельеф не ограничивает путь; p_base = мощность висения.
+        # The drone flies along a great-circle arc, terrain does not limit the path; p_base = hover power.
         Profile("drone", "drone", 30.0, 89.0, 0.3, 0.1, 0.0, 30.0, 0.0, 3000.0),
     ]
 }
@@ -93,7 +93,7 @@ class Body:
         return (np.asarray(cols) + 0.5) * 360.0 / self.shape(lvl)[1] - 180.0
 
     def window(self, lvl: int, r0: int, r1: int, c0: int, c1: int):
-        """Высоты (м) и уклоны (град.) окна. Столбцы могут выходить за 0..W: долгота замкнута."""
+        """Elevations (m) and slopes (deg) of the window. Columns may go beyond 0..W: longitude wraps around."""
         w = self.shape(lvl)[1]
         if 0 <= c0 and c1 <= w:
             e, s = self.elev[lvl][r0:r1, c0:c1], self.slope[lvl][r0:r1, c0:c1]
@@ -110,14 +110,14 @@ class Body:
 
 
 def move_cost(d, dh, slope_dst, prof: Profile, mode: str, gravity: float):
-    """Стоимость перехода: d = расстояние по горизонтали (м), dh = перепад высот (м),
-    slope_dst = средний уклон местности в ячейке назначения (градусы)."""
+    """Transition cost: d = horizontal distance (m), dh = elevation change (m),
+    slope_dst = mean terrain slope in the destination cell (degrees)."""
     g = dh / d
-    sdir = np.degrees(np.arctan(np.abs(g)))                 # уклон по ходу движения
+    sdir = np.degrees(np.arctan(np.abs(g)))                 # slope along the direction of travel
     rough = np.tan(np.radians(np.minimum(slope_dst, 60.0)))
     v = prof.speed * np.exp(-np.where(g > 0, prof.k_up, prof.k_down) * np.abs(g)
                             - prof.k_rough * rough)
-    t = np.hypot(d, dh) / v                                 # секунды
+    t = np.hypot(d, dh) / v                                 # seconds
     energy = prof.mass * gravity * (prof.crr * d + np.maximum(dh, 0.0)) + prof.p_base * t
     if mode == "eco":
         cost = energy
@@ -130,12 +130,12 @@ def move_cost(d, dh, slope_dst, prof: Profile, mode: str, gravity: float):
 def _solve(body: Body, lvl: int, r0: int, r1: int, c0: int, c1: int,
            src: tuple[int, int], dst: tuple[int, int], prof: Profile, mode: str,
            mask: np.ndarray | None = None, wrap: bool = False, env=None):
-    """Кратчайший путь внутри окна. Возвращает список ячеек (строка, столбец) или None."""
+    """Shortest path inside the window. Returns a list of (row, column) cells or None."""
     if src == dst:
         return [src]
     elev, slope = body.window(lvl, r0, r1, c0, c1)
     h, w = elev.shape
-    # Поправка на условия среды (свет, температура, риски): множитель на въезд в ячейку.
+    # Correction for environmental conditions (light, temperature, risks): a multiplier for entering a cell.
     mult = env(body.lat_rows(lvl, np.arange(r0, r1))[:, None],
                body.lon_cols(lvl, np.arange(c0, c1))[None, :], elev) \
         if env is not None else None
@@ -144,7 +144,7 @@ def _solve(body: Body, lvl: int, r0: int, r1: int, c0: int, c1: int,
     ok = slope <= prof.max_slope
     if mask is not None:
         ok &= mask
-    ok[s] = ok[t] = True          # старт и финиш разрешены всегда
+    ok[s] = ok[t] = True          # start and finish are always allowed
     idx = np.arange(h * w, dtype=np.int32).reshape(h, w)
     coslat = np.maximum(np.cos(np.radians(body.lat_rows(lvl, np.arange(r0, r1)))), 1e-4)
     cell = body.cell_m(lvl)
@@ -185,7 +185,7 @@ def _solve(body: Body, lvl: int, r0: int, r1: int, c0: int, c1: int,
 
 
 def _unwrap(path, w: int):
-    """Убирает скачки столбцов через линию ±180° (после поиска по замкнутому кольцу)."""
+    """Removes column jumps across the ±180° line (after searching on a closed ring)."""
     out, shift = [path[0]], 0
     for (r, c), (_, pc) in zip(path[1:], path[:-1]):
         if c - pc > w // 2:
@@ -197,7 +197,7 @@ def _unwrap(path, w: int):
 
 
 def _refine(body: Body, lvl: int, path, a_fine, b_fine, prof: Profile, mode: str, env=None):
-    """Уточняет путь уровня lvl на уровне lvl-1 внутри узкого коридора, кусками."""
+    """Refines a path of level lvl at level lvl-1 inside a narrow corridor, piece by piece."""
     lf = lvl - 1
     hf = body.shape(lf)[0]
     out = [a_fine]
@@ -218,13 +218,13 @@ def _refine(body: Body, lvl: int, path, a_fine, b_fine, prof: Profile, mode: str
         mask = mask[:r1 - r0]
         if last:
             target = b_fine
-        else:  # промежуточная точка: самая ровная из 4 подробных ячеек грубой ячейки
+        else:  # intermediate point: the flattest of the 4 detailed cells of the coarse cell
             r, c = cells[-1]
             _, sl = body.window(lf, 2 * r, 2 * r + 2, 2 * c, 2 * c + 2)
             k = int(np.argmin(sl))
             target = (2 * r + k // 2, 2 * c + k % 2)
         part = _solve(body, lf, r0, r1, c0, c1, cur, target, prof, mode, mask=mask, env=env)
-        if part is None:          # в коридоре прохода нет: оставляем грубый отрезок
+        if part is None:          # no way through the corridor: keep the coarse segment
             part, exact = [cur, target], False
         out.extend(part[1:])
         cur = target
@@ -239,7 +239,7 @@ def find_route(body: Body, lat1: float, lon1: float, lat2: float, lon2: float,
                smooth: bool = True) -> dict:
     prof = PROFILES[profile]
     if mode not in MODES:
-        raise ValueError("неизвестный режим")
+        raise ValueError("unknown mode")
     if profile == "drone":
         return _drone_route(body, lat1, lon1, lat2, lon2, prof, mode)
     h0, w0 = body.shape(0)
@@ -250,12 +250,12 @@ def find_route(body: Body, lat1: float, lon1: float, lat2: float, lon2: float,
         return r, c
 
     (ra, ca), (rb, cb) = cell0(lat1, lon1), cell0(lat2, lon2)
-    if cb - ca > w0 // 2:         # короче идти через линию ±180°
+    if cb - ca > w0 // 2:         # shorter to go across the ±180° line
         cb -= w0
     elif ca - cb > w0 // 2:
         cb += w0
 
-    # 1. Грубый поиск: самый подробный уровень, на котором окно помещается в лимит.
+    # 1. Coarse search: the most detailed level at which the window fits the limit.
     for lvl in range(body.levels):
         s = 1 << lvl
         h, w = body.shape(lvl)
@@ -273,11 +273,11 @@ def find_route(body: Body, lat1: float, lon1: float, lat2: float, lon2: float,
         raise NoRoute("no passable route")
     if wrap:
         path = _unwrap(path, w)
-    # Система отсчёта столбцов могла сдвинуться на целый оборот: подгоняем A и B под путь.
+    # The column reference frame may have shifted by a whole turn: fit A and B to the path.
     ca += (path[0][1] - ca // s) * s
     cb += (path[-1][1] - cb // s) * s
 
-    # 2. Уточнение: уровень за уровнем до самой подробной сетки.
+    # 2. Refinement: level by level down to the most detailed grid.
     exact = True
     while lvl > 0:
         lf = lvl - 1
@@ -285,21 +285,21 @@ def find_route(body: Body, lat1: float, lon1: float, lat2: float, lon2: float,
         exact &= ok
         lvl = lf
 
-    # 3. Точки пути: центры ячеек, концы ставим точно в выбранные места.
+    # 3. Path points: cell centres, the ends are placed exactly at the chosen places.
     lat = body.lat_rows(0, np.array([p[0] for p in path])).astype(float)
     lon = body.lon_cols(0, np.array([p[1] for p in path])).astype(float)
     lat[0], lat[-1] = lat1, lat2
     lon[0] = lon1 + 360.0 * round((lon[0] - lon1) / 360.0)
     lon[-1] = lon2 + 360.0 * round((lon[-1] - lon2) / 360.0)
 
-    # 4. Сглаживание: ломаную по сетке заменяем дугами там, где это не дороже.
+    # 4. Smoothing: the grid polyline is replaced by arcs wherever that is not more expensive.
     if smooth and len(lat) > 2:
         lat, lon = _smooth(body, lat, lon, prof, mode, env)
     return _summary(body, lat, lon, lat1, lon1, lat2, lon2, prof, mode, exact)
 
 
 def _drone_route(body: Body, la1: float, lo1: float, la2: float, lo2: float, prof: Profile, mode: str) -> dict:
-    """Полёт по прямой (дуге большого круга) с шагом около 150 м."""
+    """Flight along a straight line (great-circle arc) with a step of about 150 m."""
     dist = float(_haversine(body.radius, la1, lo1, la2, lo2))
     lat, lon = _arc(la1, lo1, la2, lo2, max(1, math.ceil(dist / 150.0)))
     return _summary(body, lat, lon, la1, lo1, la2, lo2, prof, mode, True)
@@ -312,7 +312,7 @@ def _haversine(radius, la1, lo1, la2, lo2):
 
 
 def _sample(body: Body, lat, lon):
-    """Высота (плавно, по 4 соседним ячейкам) и уклон местности (ближайшая ячейка) в точках."""
+    """Elevation (smooth, from 4 neighbouring cells) and terrain slope (nearest cell) at points."""
     h, w = body.shape(0)
     fr = np.clip((90.0 - lat) / 180.0 * h - 0.5, 0.0, h - 1.0)
     fc = (lon + 180.0) / 360.0 * w - 0.5
@@ -329,7 +329,7 @@ def _sample(body: Body, lat, lon):
 
 
 def _arc(la1, lo1, la2, lo2, k: int):
-    """k+1 точек на дуге большого круга (кратчайшая линия на шаре) между двумя точками."""
+    """k+1 points on a great-circle arc (the shortest line on a sphere) between two points."""
     p1, l1, p2, l2 = map(math.radians, (la1, lo1, la2, lo2))
     a = np.array([math.cos(p1) * math.cos(l1), math.cos(p1) * math.sin(l1), math.sin(p1)])
     b = np.array([math.cos(p2) * math.cos(l2), math.cos(p2) * math.sin(l2), math.sin(p2)])
@@ -338,33 +338,33 @@ def _arc(la1, lo1, la2, lo2, k: int):
     v = (1 - t) * a + t * b if om < 1e-9 else (np.sin((1 - t) * om) * a + np.sin(t * om) * b) / math.sin(om)
     lat = np.degrees(np.arcsin(np.clip(v[:, 2], -1, 1)))
     lon = np.degrees(np.unwrap(np.arctan2(v[:, 1], v[:, 0])))
-    lon += lo1 - lon[0]                       # та же «развёртка» долготы, что у пути
+    lon += lo1 - lon[0]                       # the same longitude "unwrapping" as for the path
     lat[0], lat[-1] = la1, la2
     lon[-1] = lo2 + 360.0 * round((lon[-1] - lo2) / 360.0)
     return lat, lon
 
 
 def _steps_cost(body: Body, lat, lon, prof: Profile, mode: str, env):
-    """Стоимость каждого шага ломаной по точкам (inf, если шаг слишком крутой)."""
+    """Cost of every step of a polyline through points (inf if the step is too steep)."""
     elev, slope = _sample(body, lat, lon)
     d = np.maximum(_haversine(body.radius, lat[:-1], lon[:-1], lat[1:], lon[1:]), 1e-3)
-    with np.errstate(divide="ignore", over="ignore", invalid="ignore"):   # обрывы -> inf, это нормально
+    with np.errstate(divide="ignore", over="ignore", invalid="ignore"):   # cliffs -> inf, that is fine
         cost, _, _, sdir = move_cost(d, np.diff(elev), slope[1:], prof, mode, body.gravity)
     if env is not None:
         cost = cost * env(lat[1:], lon[1:], elev[1:])
     bad = (sdir > prof.max_slope) | ~np.isfinite(cost)
-    bad[:-1] |= slope[1:-1] > prof.max_slope  # конечная точка шага-финиша разрешена всегда
+    bad[:-1] |= slope[1:-1] > prof.max_slope  # the end point of the finishing step is always allowed
     return np.where(bad, np.inf, cost)
 
 
 def _smooth(body: Body, lat, lon, prof: Profile, mode: str, env):
-    """«Натягивание нити»: от текущей точки ищем самую дальнюю точку пути, до которой
-    можно дойти по дуге не дороже, чем по ломаной. Проверяется та же стоимость и те же
-    запреты по уклону, что и при поиске, поэтому дуга не срезает через крутые склоны."""
+    """String pulling: from the current point look for the farthest path point that
+    can be reached along an arc at no more cost than along the polyline. The same cost and the same
+    slope bans as in the search are checked, so the arc does not cut across steep slopes."""
     n = len(lat)
     step = body.cell_m(0)
     seg = _steps_cost(body, lat, lon, prof, mode, env)
-    seg = np.where(np.isfinite(seg), seg, 0.0)          # исходный путь считаем допустимым
+    seg = np.where(np.isfinite(seg), seg, 0.0)          # the original path is considered valid
     prefix = np.concatenate([[0.0], np.cumsum(seg)])
     cache: dict = {}
 
@@ -380,18 +380,18 @@ def _smooth(body: Body, lat, lon, prof: Profile, mode: str, env):
         la, lo = arc(i, j)
         return float(_steps_cost(body, la, lo, prof, mode, env).sum()) <= (prefix[j] - prefix[i]) * (1 + 1e-9)
 
-    # Шаг 1. Жадно: от каждой опорной точки ищем самую дальнюю достижимую по дуге.
+    # Step 1. Greedy: from every anchor point look for the farthest point reachable along an arc.
     anchors = [0]
     i = 0
     while i < n - 1:
         lo_j, span = i + 1, 2
-        while i + span <= n - 1 and ok(i, i + span):   # ускоренный поиск: шаг удваивается
+        while i + span <= n - 1 and ok(i, i + span):   # accelerated search: the step doubles
             lo_j, span = i + span, span * 2
         hi_j = min(i + span, n - 1)
         if hi_j > lo_j and ok(i, hi_j):
             lo_j = hi_j
         else:
-            while hi_j - lo_j > 1:                      # деление пополам
+            while hi_j - lo_j > 1:                      # bisection
                 mid = (lo_j + hi_j) // 2
                 if ok(i, mid):
                     lo_j = mid
@@ -401,8 +401,8 @@ def _smooth(body: Body, lat, lon, prof: Profile, mode: str, env):
         cache.clear()
         i = lo_j
 
-    # Шаг 2. Убираем лишние изломы: если из точки k-1 в точку k+1 по одной дуге не дороже,
-    # чем через точку k, точка k не нужна. Повторяем, пока что-то убирается.
+    # Step 2. Remove extra kinks: if going from point k-1 to point k+1 along one arc costs no more
+    # than going through point k, point k is not needed. Repeat while something is removed.
     def arc_pts(p, q):
         dist = float(_haversine(body.radius, p[0], p[1], q[0], q[1]))
         return _arc(p[0], p[1], q[0], q[1], max(1, math.ceil(dist / step)))
@@ -411,13 +411,13 @@ def _smooth(body: Body, lat, lon, prof: Profile, mode: str, env):
         return float(_steps_cost(body, *arc_pts(p, q), prof, mode, env).sum())
 
     pts = [(float(lat[k]), float(lon[k])) for k in anchors]
-    # raw[m] = True, если отрезок m это один исходный шаг по сетке: его не пересчитываем.
+    # raw[m] = True if segment m is a single original grid step: it is not recomputed.
     raw = [b == a + 1 for a, b in zip(anchors[:-1], anchors[1:])]
     costs = [float(prefix[b] - prefix[a]) if r else arc_cost(pts[m], pts[m + 1])
              for m, (a, b, r) in enumerate(zip(anchors[:-1], anchors[1:], raw))]
 
     def merge(k: int, c: int, cost: float):
-        """Заменяет точки k..c одной дугой k -> c."""
+        """Replaces points k..c with one arc k -> c."""
         del pts[k + 1:c]
         costs[k:c] = [cost]
         raw[k:c] = [False]
@@ -437,9 +437,9 @@ def _smooth(body: Body, lat, lon, prof: Profile, mode: str, env):
         if not sweep():
             break
 
-    # Шаг 3. Дальние спрямления: соседние точки иногда нельзя соединить из-за одной
-    # неровной ячейки, хотя длинная дуга мимо неё проходит. Пробуем дуги до конца пути,
-    # до середины, до четверти и так далее (с ограничением на объём вычислений).
+    # Step 3. Long shortcuts: neighbouring points sometimes cannot be joined because of a single
+    # rough cell although a long arc passes it by. We try arcs to the end of the path,
+    # to the middle, to a quarter and so on (with a limit on the amount of computation).
     budget = 3_000_000
     k = 0
     while k < len(pts) - 2 and budget > 0:
@@ -459,7 +459,7 @@ def _smooth(body: Body, lat, lon, prof: Profile, mode: str, env):
         la, lo = (np.array([p[0], q[0]]), np.array([p[1], q[1]])) if r else arc_pts(p, q)
         out_lat.append(la[1:])
         out_lon.append(lo[1:])
-    # Долготу делаем непрерывной (без скачков на 360° между соседними дугами).
+    # Make the longitude continuous (no 360° jumps between neighbouring arcs).
     return np.concatenate(out_lat), np.unwrap(np.concatenate(out_lon), period=360.0)
 
 
@@ -492,6 +492,6 @@ def _summary(body: Body, lat, lon, lat1, lon1, lat2, lon2, prof: Profile, mode: 
         max_slope_deg=float(sdir.max()),
         elevation=[[round(float(cum[i]) / 1000, 3), float(elev[i])] for i in pick],
     )
-    # Данные по отрезкам для планировщика (сервер убирает их из ответа).
+    # Per-segment data for the planner (the server removes them from the response).
     res["_segments"] = dict(lat=lat, lon=lon, t=t, energy=energy, dist=dist3d, elev=elev)
     return res

@@ -1,11 +1,11 @@
 // Developed with assistance from Claude Code (Anthropic), an AI coding assistant. See SI_DISCLOSURE.md.
-/* Симулятор поездки: игровой цикл, этапы маршрута, интерфейс, улучшения техники. */
+/* Trip simulator: game loop, route stages, interface, vehicle upgrades. */
 (function () {
 'use strict';
 const C = window.Core, $ = id => document.getElementById(id);
 const clamp = C.clamp, D2R = C.D2R, R2D = C.R2D;
 
-// ============================================================================= тексты
+// ============================================================================= texts
 const L = {
   en: {
     stage: 'Stage', toGo: 'to go', simTime: 'Mission time', local: 'Local time', credits: 'Credits', samples: 'Samples',
@@ -98,18 +98,18 @@ let lang = 'en';
 try { if (localStorage.getItem('rbe-lang') === 'ru') lang = 'ru'; } catch (e) {}
 const tr = () => L[lang];
 
-// ============================================================================= сохранение
+// ============================================================================= saving
 const SAVE_KEY = 'rbe-sim-v1';
 let save = { credits: 600, up: {}, missions: 0 };
 try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s) save = Object.assign(save, s); } catch (e) {}
 const persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} };
 
-// ============================================================================= данные маршрута
+// ============================================================================= route data
 let ROUTE = null, routeObj = null, cfg = null, env = null, scene3 = null;
 const settings = { tractionControl: true, stability: true, hillHold: true, damage: true, weather: 'auto', tod: 'auto', online: true, name: '' };
 try { settings.name = localStorage.getItem('rbe-name') || ''; } catch (e) {}
 if (!settings.name) settings.name = 'Pilot-' + String(Math.floor(Math.random() * 9000) + 1000);
-let t0H = 0;   // смещение часов среды относительно старта миссии (выбор времени суток)
+let t0H = 0;   // offset of environment hours relative to mission start (time-of-day choice)
 const baseCfg = prof => (prof === 'drone' ? C.droneConfig(ROUTE.body) : C.VEHICLES[prof]);
 const makeCfg = prof => (prof === 'walker' ? Object.assign({}, C.VEHICLES.walker) : C.applyUpgrades(baseCfg(prof), save.up));
 const WARPS = [0.25, 0.5, 1, 2, 4, 8, 16], CRUISE = [600, 3600, 14400, 43200];
@@ -132,7 +132,7 @@ function posAt(s) {
   return [p[lo][0] + (p[hi][0] - p[lo][0]) * f, p[lo][1] + (p[hi][1] - p[lo][1]) * f, lo];
 }
 
-// ============================================================================= этапы
+// ============================================================================= stages
 const STAGE_LEN = 1500, MARGIN = 650, STEP = 8;
 let stages = [], stageIdx = 0, cur = null, nextLoad = null;
 function buildStages() {
@@ -147,7 +147,7 @@ function stageGeometry(st) {
   for (let i = 0; i < c.length; i++) if (c[i] > st.s0 + 0.5 && c[i] < sEnd - 0.5) raw.push([p[i][0], p[i][1]]);
   const e = posAt(sEnd); raw.push([e[0], e[1]]);
   const loc = raw.map(q => C.Geo.toEnu(R, la0, lo0, q[0], q[1]));
-  // уплотняем маршрут до шага STEP метров
+  // densify the route to a STEP-metre step
   const dense = [[loc[0][0], loc[0][1]]];
   for (let i = 1; i < loc.length; i++) {
     const a = loc[i - 1], b = loc[i], d = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.round(d / STEP));
@@ -172,7 +172,7 @@ async function fetchPatch(st, geo) {
   const hl = dv.getUint32(4, true), hdr = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 8, hl)));
   return { hdr, z: new Float32Array(buf, 8 + hl, hdr.nx * hdr.ny) };
 }
-/** Готовит этап: геометрия, рельеф, образцы. prevInfo — предыдущий этап (для цепочки глобальных координат). */
+/** Prepares a stage: geometry, terrain, samples. prevInfo is the previous stage (for the chain of global coordinates). */
 async function prepareStage(k, prevInfo) {
   const st = stages[k], geo = stageGeometry(st), { hdr, z } = await fetchPatch(st, geo);
   let gx0, gy0;
@@ -182,7 +182,7 @@ async function prepareStage(k, prevInfo) {
   } else { gx0 = routeObj.radius * geo.lon0 * D2R * Math.cos(geo.lat0 * D2R); gy0 = routeObj.radius * geo.lat0 * D2R; }
   const terrain = new C.Terrain(hdr, z, { gx0, gy0, smallDensity: 0.6 });
   const info = { st, geo, terrain, route: geo.dense, samples: [], done: false };
-  // образцы: два на этап, рядом с маршрутом, на не слишком крутом месте
+  // samples: two per stage, near the route, on a not-too-steep place
   for (let j = 0; j < 2; j++) {
     const i0 = Math.floor(geo.dense.length * (j ? 0.7 : 0.35)), p = geo.dense[Math.min(i0, geo.dense.length - 1)], q = geo.dense[Math.min(i0 + 2, geo.dense.length - 1)];
     const dx = q[0] - p[0], dy = q[1] - p[1], dl = Math.hypot(dx, dy) || 1;
@@ -195,7 +195,7 @@ async function prepareStage(k, prevInfo) {
   return info;
 }
 
-// ============================================================================= состояние игры
+// ============================================================================= game state
 let fleet = { vehicle: null, walker: null, drone: null }, activeKey = 'vehicle';
 let rover = null, isWalker = false, isDrone = false, running = false, paused = false, loadingStage = false;
 let simT = 0, acc = 0, lastTs = 0, prevSnap = null, envNow = null, rll = [0, 0], tick = 0;
@@ -216,7 +216,7 @@ function say(text, kind, ttl, key) {
 const fmtT = h => { h = Math.max(0, h); const d = Math.floor(h / 24), hh = Math.floor(h % 24), mm = Math.floor((h * 60) % 60); return (d ? d + (lang === 'ru' ? ' д ' : 'd ') : '') + String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0'); };
 const fmtKm = m => m >= 1000 ? (m / 1000).toFixed(m >= 10000 ? 0 : 1) + (lang === 'ru' ? ' км' : ' km') : Math.round(m) + (lang === 'ru' ? ' м' : ' m');
 
-// ============================================================================= запуск
+// ============================================================================= launch
 function applyStatic() {
   const T = tr();
   const set = (id, v) => { const e = $(id); if (e) e.textContent = v; };
@@ -290,7 +290,7 @@ async function startMission() {
     const sun = await (await fetch('/api/sim/sun?' + q)).json();
     env = new C.Environment({ body: ROUTE.body, sunTrack: new C.SunTrack(sun), weather: settings.weather });
     t0H = 0;
-    if (settings.tod !== 'auto') {   // подбираем момент, когда в точке старта нужное местное время
+    if (settings.tod !== 'auto') {   // pick the moment when the start point has the required local time
       const target = { morning: 8, noon: 12, evening: 17, night: 0.5 }[settings.tod], [sla, slo] = posAt(0), period = ROUTE.body === 'moon' ? 709 : 24.7;
       let bt = 0, bd = 99;
       for (let t = 0; t <= period; t += 0.1) { const lc = env.at(t, sla, slo).local, dd = Math.abs(((lc - target + 36) % 24) - 12); if (dd < bd) { bd = dd; bt = t; } }
@@ -339,14 +339,14 @@ function updateGuide(force) {
   scene3.setGuide(pts);
 }
 
-// ============================================================================= парк машин: выйти, вызвать дрон, пересесть
+// ============================================================================= vehicle fleet: get out, call a drone, switch vehicles
 const curProf = () => (activeKey === 'walker' ? 'walker' : activeKey === 'drone' ? 'drone' : ROUTE.profile);
 const profOf = k => (k === 'vehicle' ? ROUTE.profile : k);
 function makeEntity(kind, x, y, hdg) {
   const terrain = cur.terrain, c = makeCfg(profOf(kind));
   const obj = kind === 'walker' ? new C.Walker(c, terrain) : kind === 'drone' ? new C.Drone(c, terrain, settings) : new C.Rover(c, terrain, settings);
   obj.place(x, y, hdg);
-  if (kind !== 'walker') for (let i = 0; i < 80; i++) obj.step(0.01, null);      // даём осесть на грунт
+  if (kind !== 'walker') for (let i = 0; i < 80; i++) obj.step(0.01, null);      // let it settle onto the ground
   obj.vel = [0, 0, 0]; if (kind !== 'walker') obj.w = [0, 0, 0];
   return { kind, obj, cfg: c, lost: false, hidden: false, summon: null };
 }
@@ -355,7 +355,7 @@ function nearestIdx() {
   for (let i = 0; i < r.length; i++) { const d = (r[i][0] - p[0]) ** 2 + (r[i][1] - p[1]) ** 2; if (d < bd) { bd = d; best = i; } }
   return best;
 }
-/** Передаёт управление машине kind. hdg — курс камеры для космонавта. */
+/** Passes control to vehicle kind. hdg is the camera heading for the astronaut. */
 function activate(kind, hdg) {
   const f = fleet[kind]; if (!f) return;
   if (rover && rover.cmd) rover.cmd = null;
@@ -421,12 +421,12 @@ function boardOrLeaveDrone() {
   }
   return false;
 }
-/** Клавиша V: выйти из машины, сесть обратно, сесть на дрон или сойти с него. */
+/** V key: get out of the vehicle, get back in, board the drone or leave it. */
 function actionV() {
   if (boardOrLeaveDrone()) return;
   if (activeKey === 'vehicle') exitVehicle(); else if (activeKey === 'walker') enterVehicle();
 }
-/** Клавиши 1/2/3: передать управление (удалённое управление машиной или дроном). */
+/** Keys 1/2/3: hand over control (remote control of the rover or drone). */
 function switchControl(kind) {
   const T = tr();
   if (activeKey === kind) return;
@@ -449,7 +449,7 @@ function stepPassives(dt) {
     }
     o.events.length = 0;
   }
-  // космонавт, севший на дрон, летит вместе с ним
+  // an astronaut who boarded the drone flies with it
   if (fleet.walker && fleet.walker.hidden && fleet.drone) { const w = fleet.walker.obj, d = fleet.drone.obj; w.pos = d.pos.slice(); w.vel = [0, 0, 0]; }
 }
 const passiveList = () => ['vehicle', 'walker', 'drone'].filter(k => fleet[k] && fleet[k].obj !== rover && !fleet[k].lost).map(k => ({ kind: k, obj: fleet[k].obj, cfg: fleet[k].cfg, hidden: fleetHidden(k) }));
@@ -465,7 +465,7 @@ function updateFleetUI() {
   updateTouchUI();
 }
 
-// ============================================================================= этапы: переход
+// ============================================================================= stages: transition
 async function advanceStage() {
   if (loadingStage) return; loadingStage = true;
   const T = tr(), k = stageIdx + 1;
@@ -474,7 +474,7 @@ async function advanceStage() {
     const waiting = performance.now();
     const nxt = await nextLoad;
     const R = routeObj.radius, old = cur;
-    for (const f of Object.values(fleet)) {            // переносим в новую систему координат всю технику, а не только активную
+    for (const f of Object.values(fleet)) {            // move all vehicles to the new coordinate system, not only the active one
       if (!f || f.lost) continue; const o = f.obj, p = o.pos;
       const ll = C.Geo.toLatLon(R, old.geo.lat0, old.geo.lon0, p[0], p[1]);
       const alt = old.terrain.altitude(p[0], p[1], p[2]);
@@ -499,7 +499,7 @@ function stageProgress() {
 function routeS() { const e = Math.max(1, cur.geo.endIdx); return cur.st.s0 + clamp(pIdx / e, 0, 1) * cur.st.len; }
 const totalLen = () => routeObj.cum[routeObj.cum.length - 1];
 
-// ============================================================================= среда
+// ============================================================================= environment
 function updateEnv() {
   const p = rover.pos, R = routeObj.radius;
   rll = C.Geo.toLatLon(R, cur.geo.lat0, cur.geo.lon0, p[0], p[1]);
@@ -512,7 +512,7 @@ function updateEnv() {
   }
 }
 
-// ============================================================================= цикл
+// ============================================================================= loop
 const joy = { active: false, id: null, x: 0, y: 0 };
 function readInput() {
   const k = keys;
@@ -607,16 +607,16 @@ function handleEvents() {
   rover.events.length = 0;
 }
 
-// ============================================================================= игровая логика
+// ============================================================================= game logic
 let credFrac = 0, odoPrev = 0, warnT = 0, wasNight = null, stormPrev = 0, flipped = false;
 function gameplay(real) {
   const T = tr();
-  // кредиты за пройденный путь
+  // credits for distance covered
   const dOdo = rover.odo - odoPrev; odoPrev = rover.odo;
   mission.dist += dOdo; credFrac += dOdo / 100 * 12;
   if (credFrac >= 1) { const c = Math.floor(credFrac); credFrac -= c; mission.earned += c; save.credits += c; }
-  // заправка скафандра на контрольных точках — в advanceStage
-  // маяк и образцы
+  // spacesuit refill at checkpoints is in advanceStage
+  // beacon and samples
   const p = rover.pos, items = cur.items || [];
   for (const it of items) {
     if (it.done) continue;
@@ -642,13 +642,13 @@ function gameplay(real) {
       persist(); advanceStage(); return;
     }
   }
-  // предзагрузка следующего этапа
+  // preload the next stage
   if (!nextLoad && stageIdx + 1 < stages.length && pIdx > cur.geo.endIdx * 0.5) {
     nextLoad = prepareStage(stageIdx + 1, cur); nextLoad.catch(() => { nextLoad = null; });
   }
   updateGuide(false);
   assetVisits();
-  // предупреждения
+  // warnings
   warnT -= real; if (warnT > 0) return; warnT = 0.5;
   const frac = rover.battery / cfg.batteryKwh;
   if (isDrone && ROUTE.body === 'mars' && envNow.wind > 14) say(T.windUnsafe, 'bad', 3500, 'wind');
@@ -667,7 +667,7 @@ function gameplay(real) {
   if (stormPrev < 0.15 && envNow.storm >= 0.15) say(T.stormOn, 'warn', 6000);
   stormPrev = envNow.storm;
   if (offRoute > 300) say(T.offRoute, 'warn', 4000, 'off');
-  if (cfg.scanner >= 1 && !isWalker && !isDrone) {   // впереди крутой склон
+  if (cfg.scanner >= 1 && !isWalker && !isDrone) {   // steep slope ahead
     const a = C.axes(rover.q, {}), tx = rover.pos[0] + a.fx * 18, ty = rover.pos[1] + a.fy * 18;
     if (cur.terrain.slopeDeg(tx, ty, 1.5) > 24 && Math.abs(rover.speed) > 1) say(T.hazard, 'warn', 1800, 'haz');
   }
@@ -692,7 +692,7 @@ function endMission(success, why) {
   save.missions++; persist();
 }
 
-// ============================================================================= перелёт (ускоренная поездка)
+// ============================================================================= fast transfer (accelerated trip)
 function startCruise() {
   if (cruise.active || !running || loadingStage) return;
   const s = routeS(); cruise.s0 = s;
@@ -742,7 +742,7 @@ async function exitCruise(arrived) {
   $('loading').hidden = true; $('fade').style.opacity = 0; lastTs = performance.now(); acc = 0;
 }
 
-// ============================================================================= онлайн: чужие игроки
+// ============================================================================= online: other players
 let net = null, remRender = [], remLocal = [], netT = 0, collCool = 0, netStatus = 'off';
 const KIND_ICON = { rover_crew: '🚙', rover_robot: '🤖', walker: '🧑‍🚀', drone: '🚁' };
 const unitOf = () => (isDrone && cfg.unit === 'kg' ? 'kg' : 'kWh');
@@ -774,7 +774,7 @@ function initNet() {
 const pingMarks = [];
 function netFrame(real) {
   const now = performance.now();
-  // чужие игроки в текущей системе координат
+  // other players in the current coordinate system
   remRender.length = 0; remLocal.length = 0;
   if (net && net.connected && cur) {
     const R = routeObj.radius, t = cur.terrain;
@@ -787,7 +787,7 @@ function netFrame(real) {
       remLocal.push({ id: s.id, x, y, z, vx: Math.sin(s.hd) * s.v, vy: Math.cos(s.hd) * s.v, r: s.kind === 'rover_crew' ? 2.1 : s.kind === 'rover_robot' ? 1.4 : s.kind === 'walker' ? 0.6 : 1.0, name: s.name });
     }
   }
-  // отправка своего состояния ~10 раз в секунду (в «перелёте» реже)
+  // send own state ~10 times per second (less often during a "transfer")
   netT -= real;
   if (net && net.connected && rover && cur && netT <= 0) {
     netT = cruise.active ? 0.5 : 0.1;
@@ -800,11 +800,11 @@ function netFrame(real) {
     }
     net.state(st);
   }
-  // истёкшие метки игроков
+  // expired player markers
   for (let i = pingMarks.length - 1; i >= 0; i--) if (now - pingMarks[i].born > 90000) pingMarks.splice(i, 1);
   if (netShown) renderPlayerList();
 }
-/** Столкновения: чужая техника для нас — подвижное препятствие. Каждый клиент считает свою реакцию, поэтому толчок чувствуют оба. */
+/** Collisions: other players' vehicles are moving obstacles for us. Each client computes its own reaction, so both feel the bump. */
 function applyRemoteForces(dt) {
   rover.extF = null; collCool -= dt;
   if (!remLocal.length || WARPS[warpIdx] > 4 || isWalker) return;
@@ -839,7 +839,7 @@ function dropPing() {
   const a = isWalker ? { fx: Math.sin(rover.yaw), fy: Math.cos(rover.yaw) } : C.axes(rover.q, {}), x = rover.pos[0] + a.fx * 25, y = rover.pos[1] + a.fy * 25;
   const ll = C.Geo.toLatLon(routeObj.radius, cur.geo.lat0, cur.geo.lon0, x, y); net.ping(ll[0], ll[1]);
 }
-// ---- чат и список игроков
+// ---- chat and player list
 let netShown = false, chatOpen = false;
 function chatLine(name, text, kind, hue) {
   const box = $('chatLog'); if (!box) return;
@@ -875,7 +875,7 @@ function renderPlayerList() {
 const escapeHtml = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 function togglePlayers() { netShown = !netShown; $('plist').hidden = !netShown; if (netShown) renderPlayerList(); }
 
-// ============================================================================= настоящие аппараты
+// ============================================================================= real vehicles
 let assetsAll = [];
 const visitedAssets = new Set();
 async function loadAssets() {
@@ -886,7 +886,7 @@ function assetSub(a) {
   const T = tr();
   return a.live ? `${T.sol} ${a.sol} · ${T.liveBadge}` : T.lastKnown;
 }
-/** Аппараты, попадающие на текущий кусок рельефа. */
+/** Vehicles that fall on the current terrain patch. */
 function stageAssets(info) {
   const R = routeObj.radius, t = info.terrain, out = [];
   for (const a of assetsAll) {
@@ -899,14 +899,14 @@ function stageAssets(info) {
 function assetVisits() {
   const items = cur.assetItems || [], p = rover.pos, T = tr();
   for (const it of items) {
-    if (visitedAssets.has(it.id) || simT < 25) continue;       // аппарат в точке старта посещением не считается
+    if (visitedAssets.has(it.id) || simT < 25) continue;       // a vehicle at the start point does not count as visited
     if (Math.hypot(p[0] - it.x, p[1] - it.y) < (it.live ? 16 : 12) && (!isDrone || rover.agl() < 30)) {
       visitedAssets.add(it.id); mission.earned += 300; save.credits += 300;
       say(`${T.visited}: ${it.name}${it.live ? ' (' + T.liveBadge + ', ' + T.sol + ' ' + it.a.sol + ')' : ''}  +300`, 'good', 6000);
     }
   }
 }
-/** Для брифинга: настоящие аппараты рядом с маршрутом. */
+/** For the briefing: real vehicles near the route. */
 function nearbyAssets(maxKm) {
   const R = routeObj.radius, out = [];
   for (const a of assetsAll) {
@@ -917,7 +917,7 @@ function nearbyAssets(maxKm) {
   return out.sort((x, y) => x.d - y.d).slice(0, 6);
 }
 
-// ============================================================================= интерфейс
+// ============================================================================= interface
 const el = {};
 function updateHud() {
   const T = tr(), r = rover, e = envNow; if (!e) return;
@@ -938,7 +938,7 @@ function updateHud() {
   $('vSol').textContent = moonDrone ? '+' + (r.stats.solar || 0).toFixed(1) + ' kg/h' : ((r.stats.solar || 0) / 1000).toFixed(1) + ' kW' + (r.inShadow ? ' ☁' : '');
   $('vAlt').textContent = Math.round(cur.terrain.altitude(r.pos[0], r.pos[1], r.pos[2])) + ' m' + (isDrone ? ` · ↕ ${r.vel[2].toFixed(1)}` : '');
   $('vSlip').textContent = isWalker ? '—' : isDrone ? Math.max(0, r.agl()).toFixed(0) + ' m' : Math.round(clamp(r.stats.slip, 0, 1.5) * 100) + ' %';
-  // этап
+  // stage
   const total = totalLen(), s = routeS();
   $('mTitle').textContent = `${T.stage} ${stageIdx + 1}/${stages.length} · ${fmtKm(Math.max(0, total - s))} ${T.toGo}`;
   $('mSub').textContent = `${T.body[ROUTE.body]} · ${T.veh[curProf()]}` + (apInfo.on ? ` · ${T.auto}` : '');
@@ -946,7 +946,7 @@ function updateHud() {
   $('mClock').textContent = fmtT(simT / 3600) + ':' + String(Math.floor(simT % 60)).padStart(2, '0'); $('mLocal').textContent = fmtT(e.local);
   $('mCredits').textContent = save.credits; $('mSamples').textContent = mission.samples;
   const w = WARPS[warpIdx]; $('warpVal').textContent = '× ' + w + (warpLimited ? ' ⚠' : '');
-  // погода
+  // weather
   const phase = e.sunEl > 6 ? T.day : e.sunEl > -6 ? T.twilight : T.night;
   $('wIcon').textContent = e.storm > 0.15 ? '🌪' : e.sunEl > 6 ? '☀' : e.sunEl > -6 ? '🌅' : '🌙';
   $('vSun').textContent = `${e.sunEl.toFixed(0)}° · ${phase}`; $('vAmb').textContent = e.temp.toFixed(0) + ' °C';
@@ -961,7 +961,7 @@ const mini = { cv: null, off: null, lastT: 0, range: 300 };
 function drawMini() {
   if (!mini.cv) { mini.cv = $('mini'); mini.ctx = mini.cv.getContext('2d'); mini.off = document.createElement('canvas'); mini.off.width = mini.off.height = 110; mini.octx = mini.off.getContext('2d'); }
   const ctx = mini.ctx, W = mini.cv.width, c = W / 2, t = cur.terrain, p = rover.pos, rng = mini.range, N = 110;
-  // рельеф (север сверху) в виде теневой карты
+  // terrain (north at top) as a shaded map
   const img = mini.octx.createImageData(N, N), cell = rng * 2 / N, sd = envNow.sunDir, lx = sd[0], ly = sd[1];
   const hazard = cfg.scanner >= 1 && !isWalker;
   for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
@@ -981,12 +981,12 @@ function drawMini() {
   ctx.translate(c, c); ctx.rotate(-hdg);
   ctx.imageSmoothingEnabled = true; ctx.drawImage(mini.off, -W / 2, -W / 2, W, W);
   const X = x => (x - p[0]) * sc, Y = y => -(y - p[1]) * sc;
-  // кратеры
+  // craters
   ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1.2;
   for (const cr of t.craters) { if (Math.abs(cr[0] - p[0]) > rng + cr[2] || Math.abs(cr[1] - p[1]) > rng + cr[2]) continue; ctx.beginPath(); ctx.arc(X(cr[0]), Y(cr[1]), cr[2] * sc, 0, 7); ctx.stroke(); }
-  // валуны (сканер 2)
+  // boulders (scanner 2)
   if (cfg.scanner >= 2 && !isWalker) { ctx.fillStyle = '#ff7a59'; t.forEachRock(p[0] - rng, p[0] + rng, p[1] - rng, p[1] + rng, (x, y, r) => { if (r > 0.6 && (x - p[0]) ** 2 + (y - p[1]) ** 2 < rng * rng) { ctx.beginPath(); ctx.arc(X(x), Y(y), Math.max(2, r * sc * 1.3), 0, 7); ctx.fill(); } }); }
-  // маршрут
+  // route
   ctx.strokeStyle = '#ffb020'; ctx.lineWidth = 3.2; ctx.beginPath();
   const r = cur.route; let started = false;
   for (let i = Math.max(0, pIdx - 4); i < r.length; i++) { const x = X(r[i][0]), y = Y(r[i][1]); if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y); if (Math.hypot(x, y) > W) break; }
@@ -998,7 +998,7 @@ function drawMini() {
     ctx.fillStyle = it.kind === 'beacon' ? (it.final ? '#2dd4bf' : '#ffb020') : '#35e3ff';
     ctx.beginPath(); if (it.kind === 'beacon') ctx.rect(dx - 6, dy - 6, 12, 12); else ctx.arc(dx, dy, 5, 0, 7); ctx.fill();
   }
-  // настоящие аппараты и чужие игроки
+  // real vehicles and other players
   for (const it of cur.assetItems || []) {
     const x = X(it.x), y = Y(it.y); let dx = x, dy = y; const dd = Math.hypot(dx, dy), lim = c - 16; if (dd > lim) { dx *= lim / dd; dy *= lim / dd; }
     ctx.save(); ctx.translate(dx, dy); ctx.rotate(Math.PI / 4); ctx.fillStyle = it.live ? '#ff7a59' : '#35e3ff'; ctx.fillRect(-6, -6, 12, 12); ctx.restore();
@@ -1009,7 +1009,7 @@ function drawMini() {
   }
   for (const pm of pingMarks) { const x = X(pm.x), y = Y(pm.y); ctx.strokeStyle = `hsl(${pm.hue},85%,60%)`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, 11, 0, 7); ctx.stroke(); }
   ctx.restore();
-  // север и вездеход
+  // north and the rover
   ctx.save(); ctx.translate(c, c);
   ctx.save(); ctx.rotate(-hdg); ctx.fillStyle = '#e8eefb'; ctx.font = 'bold 22px system-ui'; ctx.textAlign = 'center'; ctx.fillText('N', 0, -c + 26); ctx.restore();
   ctx.fillStyle = '#2dd4bf'; ctx.strokeStyle = '#04201c'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, -17); ctx.lineTo(11, 13); ctx.lineTo(0, 7); ctx.lineTo(-11, 13); ctx.closePath(); ctx.stroke(); ctx.fill();
@@ -1017,7 +1017,7 @@ function drawMini() {
   ctx.strokeStyle = 'rgba(130,160,220,.5)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(c, c, c - 2, 0, 7); ctx.stroke();
 }
 
-// ----------------------------------------------------------------------------- гараж
+// ----------------------------------------------------------------------------- garage
 function showGarage(fromBrief, afterEnd) {
   const T = tr(), host = $('garage'), canBuyHere = true;
   const items = Object.keys(C.UPGRADES).filter(k => !(ROUTE.profile === 'walker' && k !== 'lights' && k !== 'scanner')).map(k => {
@@ -1057,7 +1057,7 @@ function buyUpgrade(k, fromBrief, afterEnd) {
   say(T.bought, 'good', 2500); showGarage(fromBrief, afterEnd);
 }
 
-// ----------------------------------------------------------------------------- пауза
+// ----------------------------------------------------------------------------- pause
 function showPause(on) {
   const T = tr(); paused = on;
   if (!on) { $('pause').hidden = true; $('garage').hidden = true; lastTs = performance.now(); return; }
@@ -1074,7 +1074,7 @@ function showPause(on) {
   };
 }
 
-// ============================================================================= управление
+// ============================================================================= controls
 function bindInput() {
   const prevent = new Set(['Tab', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'BracketLeft', 'BracketRight']);
   window.addEventListener('keydown', e => {
@@ -1142,10 +1142,10 @@ function bindInput() {
   $('cStop').onclick = () => exitCruise(false);
 }
 
-// ============================================================================= старт страницы
-// ---------------------------------------------------------------------------- телефон: джойстик, кнопки, жесты камеры
+// ============================================================================= page start
+// ---------------------------------------------------------------------------- phone: joystick, buttons, camera gestures
 const touchDev = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches) || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-/** setPointerCapture может бросить исключение (палец уже поднят, синтетическое событие) — это не должно ломать игру. */
+/** setPointerCapture may throw (finger already lifted, synthetic event); this must not break the game. */
 function capture(el, id) { try { el.setPointerCapture(id); } catch (e) {} }
 function bindTouch() {
   if (!touchDev) return;
@@ -1168,7 +1168,7 @@ function bindTouch() {
   tap('tbCam', () => { cam.mode = (cam.mode + 1) % 3; if (!isWalker) cam.yaw = 0; });
   tap('tbAuto', () => { if (!cruise.active && !paused) setAuto(!apInfo.on); });
   tap('tbCruise', startCruise); tap('tbPause', () => showPause(!paused)); tap('tbChat', () => openChat(true));
-  // камера: один палец вращает, два — масштаб
+  // camera: one finger rotates, two zoom
   const cv = $('gl'), ptrs = new Map(); let pinch = 0;
   cv.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') return; ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); capture(cv, e.pointerId); pinch = 0; });
   cv.addEventListener('pointermove', e => {
@@ -1192,7 +1192,7 @@ function updateTouchUI() {
 }
 function goFullscreen() {
   if (!touchDev) return;
-  const safe = f => { try { const r = f(); if (r && r.catch) r.catch(() => {}); } catch (e) {} };   // ошибки «Permissions check failed» не должны всплывать
+  const safe = f => { try { const r = f(); if (r && r.catch) r.catch(() => {}); } catch (e) {} };   // "Permissions check failed" errors must not surface
   const el = document.documentElement;
   safe(() => (el.requestFullscreen || el.webkitRequestFullscreen || (() => {})).call(el));
   safe(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape'));

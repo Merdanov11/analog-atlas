@@ -1,7 +1,7 @@
 # Developed with assistance from Claude Code (Anthropic), an AI coding assistant. See SI_DISCLOSURE.md.
-"""Сервер: отдаёт веб-карту, презентацию и считает маршруты.
+"""Server: serves the web map, the presentation and computes routes.
 
-Запуск:  .venv/bin/uvicorn app:app --app-dir server --port 8000
+Run:  .venv/bin/uvicorn app:app --app-dir server --port 8000
 """
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ BODIES: dict[str, Body] = {
 
 @app.middleware("http")
 async def no_stale_pages(request, call_next):
-    """Страницы сайта браузер каждый раз сверяет с сервером, чтобы не показывать старую версию."""
+    """The browser revalidates the site pages with the server every time so that it never shows an old version."""
     response = await call_next(request)
     if not request.url.path.startswith("/api/"):
         response.headers["Cache-Control"] = "no-cache"
@@ -72,7 +72,7 @@ def meta(lang: str = "en"):
 
 @app.get("/api/places")
 def places(body: str):
-    """Названные объекты из справочника IAU (кратеры, горы, долины, равнины)."""
+    """Named features from the IAU gazetteer (craters, mountains, valleys, plains)."""
     if body not in ("moon", "mars") or not (PLACES / f"{body}.json").exists():
         raise HTTPException(404, tr("en", "err.body"))
     return FileResponse(PLACES / f"{body}.json", media_type="application/json",
@@ -81,7 +81,7 @@ def places(body: str):
 
 @app.get("/api/sites")
 def sites(body: str):
-    """Места посадок космических аппаратов."""
+    """Landing sites of spacecraft."""
     return landing_sites(body)
 
 
@@ -96,7 +96,7 @@ def elevation(body: str, lat: float = Query(ge=-90, le=90), lon: float = 0.0, la
 
 @app.get("/api/sun")
 def sun(body: str, start: str | None = None, lang: str = "en"):
-    """Точка, над которой Солнце стоит в зените (для отрисовки дня и ночи)."""
+    """The point where the Sun stands at the zenith (to draw day and night)."""
     if body not in ("moon", "mars"):
         raise HTTPException(404, tr(lang, "err.body"))
     s = sun_state(body, julian_date(_when(start, lang)))
@@ -122,10 +122,10 @@ def route(body: str,
     plan = simulate(body, profile, seg, when, lang) if seg else None
     cond = dict(applied=False, text=tr(lang, "cond.none"))
 
-    # Второй проход: тот же поиск, но ячейки, где в расчётное время прибытия темно,
-    # слишком холодно или жарко (а в безопасном режиме ещё и опасно), стоят дороже.
+    # Second pass: the same search, but cells that are dark, too cold or too hot at the estimated arrival time
+    # (and, in safe mode, also dangerous) cost more.
     if plan and plan["total_h"] > 0 and res["distance_m"] > 0 and profile != "drone":
-        speed = res["distance_m"] / plan["total_h"]          # м/ч с учётом остановок
+        speed = res["distance_m"] / plan["total_h"]          # m/h including stops
         env = make_env(body, b.radius, profile, mode, when, lat1, lon1, speed)
         try:
             res2 = find_route(b, lat1, lon1, lat2, lon2, profile, mode, env=env)
@@ -137,21 +137,21 @@ def route(body: str,
             dh = plan2["total_h"] - plan["total_h"]
             dist = tr(lang, "cond.longer" if dk >= 0 else "cond.shorter", km=abs(dk))
             dtime = tr(lang, "cond.slower" if dh >= 0 else "cond.faster", h=abs(dh))
-            # В безопасном режиме на Марсе второй проход ещё и снижает радиацию и риск бури,
-            # поэтому берём его, даже если он не быстрее.
+            # In safe mode on Mars the second pass also lowers radiation and storm risk,
+            # so we take it even if it is not faster.
             risk_mode = mode == "safe" and body == "mars" and RULES[profile].crewed
             text = None
             if plan2["feasible"] and not plan["feasible"]:
                 text = tr(lang, "cond.infeasible", dist=dist)
             elif plan2["feasible"] and plan["feasible"]:
-                # Объезд оправдан, только если экономит заметное время: минимум 5 % и 1 час.
-                # Иначе лишние километры (усталость, энергия, радиация) не окупаются.
+                # A detour is justified only if it saves noticeable time: at least 5 % and 1 hour.
+                # Otherwise the extra kilometres (fatigue, energy, radiation) do not pay off.
                 if plan2["total_h"] < plan["total_h"] - max(1.0, 0.05 * plan["total_h"]):
                     text = tr(lang, "cond.time", dist=dist, time=dtime)
                 elif (risk_mode and plan2["total_h"] <= 1.15 * plan["total_h"]
                       and (plan2["dose_msv"] < 0.97 * plan["dose_msv"]
                            or plan2["storm_p"] < plan["storm_p"] - 0.02)):
-                    # Берём, только если риск реально снизился и поездка не намного дольше.
+                    # We take it only if the risk really dropped and the trip is not much longer.
                     text = tr(lang, "cond.risk", dist=dist, time=dtime,
                               d2=plan2["dose_msv"], d1=plan["dose_msv"],
                               s2=round(plan2["storm_p"] * 100), s1=round(plan["storm_p"] * 100))
@@ -169,7 +169,7 @@ def sim_patch(body: str, lat0: float = Query(ge=-90, le=90), lon0: float = 0.0,
               x0: float = -1000.0, x1: float = 1000.0, y0: float = -1000.0, y1: float = 1000.0,
               res: float = Query(4.0, ge=2.0, le=16.0), density: float = Query(1.0, ge=0.0, le=3.0),
               lang: str = "en"):
-    """Подробный рельеф вокруг участка маршрута для симулятора (двоичный ответ, см. terrain.patch)."""
+    """Detailed terrain around a route stage for the simulator (binary response, see terrain.patch)."""
     if body not in ("moon", "mars"):
         raise HTTPException(404, tr(lang, "err.body"))
     if not (x1 > x0 and y1 > y0):
@@ -184,7 +184,7 @@ def sim_patch(body: str, lat0: float = Query(ge=-90, le=90), lon0: float = 0.0,
 @app.get("/api/sim/sun")
 def sim_sun(body: str, start: str | None = None, hours: float = Query(48.0, gt=0, le=4000), n: int = Query(97, ge=2, le=4001),
             lang: str = "en"):
-    """Подсолнечная точка на n моментов за hours часов: симулятор вычисляет по ней Солнце в любой точке."""
+    """Subsolar point at n moments over hours hours: the simulator computes the Sun at any point from it."""
     if body not in ("moon", "mars"):
         raise HTTPException(404, tr(lang, "err.body"))
     when = _when(start, lang)
@@ -194,7 +194,7 @@ def sim_sun(body: str, start: str | None = None, hours: float = Query(48.0, gt=0
     for i in range(n):
         s = sun_state(body, jd0 + hours * i / (n - 1) / 24.0)
         lo = s["lon"]
-        if prev is not None:                       # делаем долготу непрерывной
+        if prev is not None:                       # make the longitude continuous
             lo += 360.0 * round((prev - lo) / 360.0)
         prev = lo
         lat.append(round(s["lat"], 4)); lon.append(round(lo, 4)); r.append(round(s["r"], 5))
@@ -204,7 +204,7 @@ def sim_sun(body: str, start: str | None = None, hours: float = Query(48.0, gt=0
 
 @app.get("/api/assets")
 def api_assets(body: str, trace: bool = False, lang: str = "en"):
-    """Настоящие аппараты на теле: живое положение Perseverance и Curiosity (NASA) и каталожные посадки."""
+    """Real vehicles on a body: live positions of Perseverance and Curiosity (NASA) and catalogue landings."""
     if body not in ("moon", "mars"):
         raise HTTPException(404, tr(lang, "err.body"))
     return assets_mod.assets(body, trace)
@@ -212,7 +212,7 @@ def api_assets(body: str, trace: bool = False, lang: str = "en"):
 
 @app.get("/api/players")
 def api_players(body: str | None = None):
-    """Кто сейчас играет в симуляторе (для отметок на карте)."""
+    """Who is playing in the simulator right now (for markers on the map)."""
     return dict(online=hub.online(body), players=hub.list_players(body))
 
 

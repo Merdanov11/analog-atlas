@@ -1,8 +1,8 @@
 // Developed with assistance from Claude Code (Anthropic), an AI coding assistant. See SI_DISCLOSURE.md.
-/* Ядро симулятора: геометрия планеты, рельеф, физика вездехода и пешехода, среда, автопилот.
-   Файл не зависит от браузера (работает и в Node), поэтому физику можно проверять тестами.
-   Системы координат: мир = локальная плоскость ENU (x восток, y север, z вверх), метры.
-   Тело вездехода: x вперёд, y влево, z вверх. */
+/* Simulator core: planet geometry, terrain, rover and pedestrian physics, environment, autopilot.
+   The file does not depend on the browser (it also runs in Node), so the physics can be checked by tests.
+   Coordinate systems: world = local ENU plane (x east, y north, z up), metres.
+   Rover body: x forward, y left, z up. */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.Core = factory();
@@ -14,7 +14,7 @@ const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
 const lerp = (a, b, t) => a + (b - a) * t;
 const smooth = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
 
-// ======================================================================= геометрия планеты
+// ======================================================================= planet geometry
 const Geo = {
   basis(lat0, lon0) {
     const p = lat0 * D2R, l = lon0 * D2R;
@@ -24,14 +24,14 @@ const Geo = {
       u: [Math.cos(p) * Math.cos(l), Math.cos(p) * Math.sin(l), Math.sin(p)],
     };
   },
-  /** Точка (lat, lon) -> [x, y, z] в локальной системе с началом в (lat0, lon0). */
+  /** Point (lat, lon) -> [x, y, z] in a local frame with origin at (lat0, lon0). */
   toEnu(R, lat0, lon0, lat, lon) {
     const b = Geo.basis(lat0, lon0), p = lat * D2R, l = lon * D2R;
     const vx = Math.cos(p) * Math.cos(l), vy = Math.cos(p) * Math.sin(l), vz = Math.sin(p);
     return [R * (vx * b.e[0] + vy * b.e[1]), R * (vx * b.n[0] + vy * b.n[1] + vz * b.n[2]),
             R * (vx * b.u[0] + vy * b.u[1] + vz * b.u[2] - 1)];
   },
-  /** Точка над плоскостью (x, y) -> [lat, lon] в градусах. */
+  /** Point above the (x, y) plane -> [lat, lon] in degrees. */
   toLatLon(R, lat0, lon0, x, y) {
     const b = Geo.basis(lat0, lon0), up = Math.sqrt(Math.max(R * R - x * x - y * y, 1));
     const vx = x * b.e[0] + y * b.n[0] + up * b.u[0];
@@ -47,7 +47,7 @@ const Geo = {
   wrap180: x => ((x + 180) % 360 + 360) % 360 - 180,
 };
 
-// ======================================================================= хеш и шум
+// ======================================================================= hash and noise
 function hash2(ix, iy, seed) {
   let h = (Math.imul(ix | 0, 374761393) + Math.imul(iy | 0, 668265263) + Math.imul(seed | 0, 0x2545F491)) | 0;
   h = Math.imul(h ^ (h >>> 13), 1274126177);
@@ -57,7 +57,7 @@ function hash2(ix, iy, seed) {
   return h >>> 0;
 }
 const rnd = (ix, iy, seed) => (hash2(ix, iy, seed) & 0xFFFFFF) / 16777216;
-function vnoise(x, y, seed) {   // значение шума в диапазоне -1..1
+function vnoise(x, y, seed) {   // noise value in the range -1..1
   const ix = Math.floor(x), iy = Math.floor(y);
   let fx = x - ix, fy = y - iy;
   fx = fx * fx * (3 - 2 * fx); fy = fy * fy * (3 - 2 * fy);
@@ -65,13 +65,13 @@ function vnoise(x, y, seed) {   // значение шума в диапазон
   return (a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy) * 2 - 1;
 }
 
-// ======================================================================= рельеф
-// Мелкие кратеры (дополняют серверные, что от 16 м): диаметр 2-16 м; степенной закон N(>D) ~ D^-2.
+// ======================================================================= terrain
+// Small craters (complementing the server ones, which start at 16 m): diameter 2-16 m; power law N(>D) ~ D^-2.
 const SMALL_BANDS = [[2, 4], [4, 8], [8, 16]];
 const SATURATION = 0.012;
 
 class Terrain {
-  /** hdr и z — ответ /api/sim/patch. opt: gx0, gy0 (глобальные координаты начала куска, для кратеров и камней). */
+  /** hdr and z are the /api/sim/patch response. opt: gx0, gy0 (global coordinates of the patch origin, for craters and rocks). */
   constructor(hdr, z, opt = {}) {
     this.nx = hdr.nx; this.ny = hdr.ny; this.res = hdr.res; this.x0 = hdr.x0; this.y0 = hdr.y0;
     this.h0 = hdr.h0; this.R = hdr.radius; this.g = hdr.gravity; this.body = hdr.body;
@@ -85,12 +85,12 @@ class Terrain {
     this._cc = new Map(); this._rc = new Map();
   }
 
-  /** Высота по сетке сервера (билинейно); за краем куска значение продолжается. */
+  /** Height from the server grid (bilinear); beyond the patch edge the value is extended. */
   grid(x, y) {
     let fx = (x - this.x0) / this.res, fy = (y - this.y0) / this.res;
     if (fx < 0) fx = 0; else if (fx > this.nx - 1.001) fx = this.nx - 1.001;
     if (fy < 0) fy = 0; else if (fy > this.ny - 1.001) fy = this.ny - 1.001;
-    // Бикубическая (Catmull-Rom) интерполяция: поверхность гладкая, без «граней» билинейной сетки.
+    // Bicubic (Catmull-Rom) interpolation: a smooth surface without the "facets" of a bilinear grid.
     const nx = this.nx, ny = this.ny, z = this.z, ix = fx | 0, iy = fy | 0, tx = fx - ix, ty = fy - iy;
     const i0 = ix > 0 ? ix - 1 : 0, i2 = ix + 1, i3 = ix + 2 < nx ? ix + 2 : nx - 1;
     const r = (j) => {
@@ -101,7 +101,7 @@ class Terrain {
     const q0 = r(j0), q1 = r(iy), q2 = r(j2), q3 = r(j3);
     return q1 + 0.5 * ty * (q2 - q0 + ty * (2 * q0 - 5 * q1 + 4 * q2 - q3 + ty * (3 * (q1 - q2) + q3 - q0)));
   }
-  micro(x, y) {   // рябь грунта: сантиметры-дециметры
+  micro(x, y) {   // ground ripple: centimetres to decimetres
     const gx = x + this.gx0, gy = y + this.gy0;
     return 0.09 * vnoise(gx / 6, gy / 6, 1) + 0.04 * vnoise(gx / 2.5, gy / 2.5, 2) + 0.016 * vnoise(gx, gy, 3);
   }
@@ -173,12 +173,12 @@ class Terrain {
       const c = this._rockCell(ci, cj);
       for (let k = 0; k < c.length; k += 3) {
         const dx = gx - c[k], dy = gy - c[k + 1], r = c[k + 2], q = 1 - (dx * dx + dy * dy) / (r * r);
-        if (q > 0) h = Math.max(h, 0.5 * r * Math.pow(q, 0.75));   // наполовину вросший камень: пологий, чтобы не цеплять колёса
+        if (q > 0) h = Math.max(h, 0.5 * r * Math.pow(q, 0.75));   // half-buried rock: gently sloped so it does not snag the wheels
       }
     }
     return h;
   }
-  /** Камни в прямоугольнике: callback(x, y, r). Нужен рендеру. */
+  /** Rocks in a rectangle: callback(x, y, r). Needed by the renderer. */
   forEachRock(xa, xb, ya, yb, cb) {
     if (this.rockK <= 0) return;
     const i0 = Math.floor((xa + this.gx0) / 6), i1 = Math.floor((xb + this.gx0) / 6);
@@ -193,38 +193,38 @@ class Terrain {
   }
   heightBase(x, y) { return this.grid(x, y) + this.micro(x, y) + this.craterH(x, y); }
   height(x, y) { return this.heightBase(x, y) + this.rockH(x, y); }
-  /** Нормаль поверхности (единичный вектор) в out. */
+  /** Surface normal (unit vector) into out. */
   normal(x, y, out, e = 0.35) {
     const dx = this.height(x - e, y) - this.height(x + e, y), dy = this.height(x, y - e) - this.height(x, y + e);
     const k = 1 / Math.sqrt(dx * dx + dy * dy + 4 * e * e);
     out[0] = dx * k; out[1] = dy * k; out[2] = 2 * e * k;
     return out;
   }
-  /** Уклон (градусы) на масштабе step метров. */
+  /** Slope (degrees) at a scale of step metres. */
   slopeDeg(x, y, step = 1.5) {
     const dx = (this.height(x + step, y) - this.height(x - step, y)) / (2 * step);
     const dy = (this.height(x, y + step) - this.height(x, y - step)) / (2 * step);
     return Math.atan(Math.hypot(dx, dy)) * R2D;
   }
-  /** Абсолютная высота над базовой сферой, м (для табло). */
+  /** Absolute height above the base sphere, m (for the dashboard). */
   altitude(x, y, z) { return this.h0 + z + (x * x + y * y) / (2 * this.R); }
 }
 
-// ======================================================================= кватернионы
+// ======================================================================= quaternions
 const qmul = (a, b) => ({
   w: a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z, x: a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
   y: a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x, z: a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,
 });
 function qnorm(q) { const k = 1 / Math.hypot(q.w, q.x, q.y, q.z); q.w *= k; q.x *= k; q.y *= k; q.z *= k; return q; }
-/** Оси тела в мире: столбцы матрицы вращения. */
+/** Body axes in the world: columns of the rotation matrix. */
 function axes(q, o) {
   const { x, y, z, w } = q;
-  o.fx = 1 - 2 * (y * y + z * z); o.fy = 2 * (x * y + w * z); o.fz = 2 * (x * z - w * y);       // вперёд
-  o.lx = 2 * (x * y - w * z); o.ly = 1 - 2 * (x * x + z * z); o.lz = 2 * (y * z + w * x);       // влево
-  o.ux = 2 * (x * z + w * y); o.uy = 2 * (y * z - w * x); o.uz = 1 - 2 * (x * x + y * y);       // вверх
+  o.fx = 1 - 2 * (y * y + z * z); o.fy = 2 * (x * y + w * z); o.fz = 2 * (x * z - w * y);       // forward
+  o.lx = 2 * (x * y - w * z); o.ly = 1 - 2 * (x * x + z * z); o.lz = 2 * (y * z + w * x);       // left
+  o.ux = 2 * (x * z + w * y); o.uy = 2 * (y * z - w * x); o.uz = 1 - 2 * (x * x + y * y);       // up
   return o;
 }
-/** Кватернион по трём осям (вперёд, влево, вверх), ортонормальным. */
+/** Quaternion from three orthonormal axes (forward, left, up). */
 function qFromAxes(f, l, u) {
   const m00 = f[0], m10 = f[1], m20 = f[2], m01 = l[0], m11 = l[1], m21 = l[2], m02 = u[0], m12 = u[1], m22 = u[2];
   const tr = m00 + m11 + m22;
@@ -236,8 +236,8 @@ function qFromAxes(f, l, u) {
   return qnorm(q);
 }
 
-// ======================================================================= конфигурации техники
-/** Базовые параметры; уровни улучшений применяются в applyUpgrades. Согласованы с правилами планировщика сервера. */
+// ======================================================================= vehicle configurations
+/** Base parameters; upgrade levels are applied in applyUpgrades. Consistent with the server planner rules. */
 const VEHICLES = {
   rover_crew: {
     key: 'rover_crew', crewed: true, mass: 1500, wheelR: 0.42, wheelW: 0.34, wheelI: 9, L0: 0.42, droop: 0.18,
@@ -285,7 +285,7 @@ function applyUpgrades(base, up) {
   return c;
 }
 
-// ======================================================================= среда: Солнце, температура, бури
+// ======================================================================= environment: Sun, temperature, storms
 function conditions(body, sun, lat, lon) {
   const h = Geo.wrap180(lon - sun.lon), phi = lat * D2R, dec = sun.lat * D2R, hr = h * D2R;
   const sinEl = Math.sin(phi) * Math.sin(dec) + Math.cos(phi) * Math.cos(dec) * Math.cos(hr);
@@ -319,14 +319,14 @@ const stormProbPerSol = (ls, lat) => {
   return 0.002 + 0.02 * season * (1 - 0.3 * lat / 90) + (ls >= 180 && ls <= 330 ? 0.0011 : 0);
 };
 
-/** Положение Солнца по таблице подсолнечной точки (ответ /api/sim/sun), линейная интерполяция по часам. */
+/** Sun position from the subsolar-point table (the /api/sim/sun response), linear interpolation over hours. */
 class SunTrack {
   constructor(data) { this.d = data; this.step = data.hours / (data.n - 1); }
   at(hours) {
     const d = this.d, f = hours / this.step, last = d.n - 1;
     let i = Math.floor(f), t = f - i;
     if (i < 0) { i = 0; t = 0; }
-    if (i >= last) {                                   // за пределами таблицы продолжаем по последнему наклону
+    if (i >= last) {                                   // beyond the table we continue along the last slope
       const lo = d.lon[last] - d.lon[last - 1];
       return { lat: d.lat[last], lon: d.lon[last] + lo * (f - last), r: d.r[last], ls: d.ls[last] == null ? null : d.ls[last] + 0.0 };
     }
@@ -343,11 +343,11 @@ class Environment {
     this.seed = opts.seed || 5;
     this.solHours = 24.66;
   }
-  /** Состояние среды в момент t (часы от старта) в точке (lat, lon). */
+  /** Environment state at time t (hours from start) at point (lat, lon). */
   at(t, lat, lon) {
     const sun = this.track.at(t), c = conditions(this.body, sun, lat, lon);
     const phi = lat * D2R, dec = sun.lat * D2R, hr = c.hourAngle * D2R;
-    // Азимут Солнца от севера по часовой стрелке.
+    // Sun azimuth from north, clockwise.
     const az = Math.atan2(Math.sin(hr), Math.cos(hr) * Math.sin(phi) - Math.tan(dec) * Math.cos(phi)) + Math.PI;
     const el = c.elev * D2R, ce = Math.cos(el);
     const out = { sunEl: c.elev, sunAz: az * R2D, local: c.local, temp: c.temp, ls: sun.ls, r: sun.r,
@@ -363,7 +363,7 @@ class Environment {
   }
   stormLevel(t, ls, lat) {
     let p = clamp(stormProbPerSol(ls, lat) * this.mult, 0, 0.9);
-    if (this.weather === 'stormy') p = Math.max(p, 0.55);   // «бурная» погода: бури круглый год
+    if (this.weather === 'stormy') p = Math.max(p, 0.55);   // "stormy" weather: storms all year round
     if (p <= 0) return { level: 0, tau: 0 };
     let best = 0, tauAdd = 0;
     const sol = Math.floor(t / this.solHours);
@@ -379,7 +379,7 @@ class Environment {
   }
 }
 
-// ======================================================================= тень рельефа
+// ======================================================================= terrain shadow
 function inShadow(terrain, x, y, z, sunDir) {
   if (sunDir[2] <= 0.02) return true;
   const hx = sunDir[0], hy = sunDir[1], hz = sunDir[2];
@@ -394,17 +394,17 @@ function inShadow(terrain, x, y, z, sunDir) {
   return false;
 }
 
-// ======================================================================= грунт (механика колеса на сыпучем грунте)
-/** Параметры реголита по Бекеру-Вонгу и Яноши-Ханамото. Луна: Heiken et al. 1991; Марс: данные MER/Spirit (Richter 2006, Arvidson 2004).
-    kc, kphi — модули давления-осадки, n — показатель, c — сцепление (Па), phi — угол трения, K — модуль сдвига (м). */
+// ======================================================================= soil (wheel mechanics on loose ground)
+/** Regolith parameters after Bekker-Wong and Janosi-Hanamoto. Moon: Heiken et al. 1991; Mars: MER/Spirit data (Richter 2006, Arvidson 2004).
+    kc, kphi are pressure-sinkage moduli, n is the exponent, c is cohesion (Pa), phi is the friction angle, K is the shear modulus (m). */
 const SOIL = {
   moon: { n: 1.0, kc: 1400, kphi: 1.6e6, c: 170, phi: 35, K: 0.018 },
   mars: { n: 0.9, kc: 1800, kphi: 2.2e6, c: 500, phi: 31, K: 0.020 },
 };
-const jh = x => (x < 1e-3 ? 0.5 * x - x * x / 6 : 1 - (1 - Math.exp(-x)) / x);                 // кривая сдвиг-напряжение, 0..1
+const jh = x => (x < 1e-3 ? 0.5 * x - x * x / 6 : 1 - (1 - Math.exp(-x)) / x);                 // shear-stress curve, 0..1
 const jhd = x => { if (x < 1e-3) return 0.5 - x / 3; const e = Math.exp(-x); return (1 - e) / (x * x) - e / x; };
 
-// ======================================================================= вездеход
+// ======================================================================= rover
 class Rover {
   constructor(cfg, terrain, opts = {}) {
     this.cfg = cfg; this.terrain = terrain;
@@ -413,7 +413,7 @@ class Rover {
     const m = cfg.mass, hx = cfg.hull[0] * 2, hy = cfg.hull[1] * 2, hz = cfg.hull[2] * 2;
     this.I = [m / 12 * (hy * hy + hz * hz) * 1.4, m / 12 * (hx * hx + hz * hz) * 1.4, m / 12 * (hx * hx + hy * hy) * 1.3];
     this.wheels = cfg.mounts.map((mt, i) => ({ m: mt, steer: cfg.steer[i] || 0, omega: 0, contact: false, comp: 0, Fn: 0, slip: 0, grip: 1 }));
-    // Точки корпуса для проверки касания грунта.
+    // Hull points for ground contact checks.
     const [a, b, c, o] = cfg.hull;
     this.hullPts = [];
     for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) this.hullPts.push([sx * a, sy * b, o + sz * c]);
@@ -427,7 +427,7 @@ class Rover {
     this._ax = {}; this._n = [0, 0, 1]; this._tm = 0;
   }
 
-  /** Ставит вездеход на грунт в точке (x, y) носом на азимут heading (радианы от севера по часовой). */
+  /** Places the rover on the ground at (x, y), nose on azimuth heading (radians from north, clockwise). */
   place(x, y, heading) {
     const t = this.terrain, n = t.normal(x, y, [0, 0, 1], 1.2);
     let fx = Math.sin(heading), fy = Math.cos(heading), fz = 0;
@@ -449,7 +449,7 @@ class Rover {
     const cfg = this.cfg, t = this.terrain, g = t.g, m = cfg.mass, wheels = this.wheels;
     const a = axes(this.q, this._ax), p = this.pos, v = this.vel, om = this.w;
     const inp = this.input;
-    // ---- органы управления: плавное изменение, ограничения помощников
+    // ---- controls: smooth changes, assist limits
     const spd = this.speed, aspd = Math.abs(spd);
     let thr = inp.throttle, brk = inp.brake;
     this.throttle += clamp(thr - this.throttle, -4 * dt, 3 * dt);
@@ -463,18 +463,18 @@ class Rover {
     const sT = steerCmd * cfg.steerMax / (1 + 0.02 * aspd * aspd);
     this.steerAngle += clamp(sT - this.steerAngle, -1.6 * dt, 1.6 * dt);
     let throttle = dead ? 0 : this.throttle;
-    if (this.opts.stability && a.uz < 0.93) throttle *= clamp((a.uz - 0.66) / 0.27, 0, 1);   // сильный крен: не добавлять газ
+    if (this.opts.stability && a.uz < 0.93) throttle *= clamp((a.uz - 0.66) / 0.27, 0, 1);   // strong roll: do not add throttle
     this.park = this.opts.hillHold && Math.abs(inp.throttle) < 0.03 && brk < 0.05 && aspd < 0.3;
     const brakeCmd = Math.max(brk, this.park ? 1 : 0);
 
-    // ---- потери мощности по температуре, повреждениям и заряду
+    // ---- power losses from temperature, damage and charge
     let derate = 1;
     if (this.temp < -30) derate *= clamp(1 - (-30 - this.temp) / 60, 0.25, 1);
     if (this.temp > 55) derate *= clamp(1 - (this.temp - 55) / 25, 0.2, 1);
     derate *= 1 - 0.5 * this.damage / 100;
     const pLimit = cfg.power * derate;
 
-    // ---- силы
+    // ---- forces
     let Fx = 0, Fy = 0, Fz = -m * g, Tx = 0, Ty = 0, Tz = 0;
     let pMech = 0, contacts = 0, slipMax = 0, closeMax = 0;
     const halfW = 0.5 * cfg.wheelW, Rw = cfg.wheelR, droopL = cfg.L0 + cfg.droop, Lmin = cfg.L0 - 0.16 - (cfg.travelBonus || 0);
@@ -484,11 +484,11 @@ class Rover {
     const nOn = wheels.length;
     for (let i = 0; i < nOn; i++) {
       const wh = wheels[i], mt = wh.m;
-      // Точка крепления подвески в мире.
+      // Suspension mount point in the world.
       const mx = p[0] + a.fx * mt[0] + a.lx * mt[1] + a.ux * mt[2];
       const my = p[1] + a.fy * mt[0] + a.ly * mt[1] + a.uy * mt[2];
       const mz = p[2] + a.fz * mt[0] + a.lz * mt[1] + a.uz * mt[2];
-      // Направление колеса (с углом поворота) в плоскости тела.
+      // Wheel direction (with steering angle) in the body plane.
       const del = wh.steer * this.steerAngle, cd = Math.cos(del), sd = Math.sin(del);
       let wfx = a.fx * cd + a.lx * sd, wfy = a.fy * cd + a.ly * sd, wfz = a.fz * cd + a.lz * sd;
       let contact = false, comp = 0, l = droopL, hx = mx, hy = my;
@@ -502,9 +502,9 @@ class Rover {
             const e = t.height(hx + ex * d, hy + ey * d) + Math.sqrt(Rw * Rw - d * d);
             if (e > E) E = e;
           }
-          // Боковые точки: камень сбоку от колеса тоже поднимает его (колесо шириной wheelW).
+          // Side points: a rock beside the wheel also lifts it (wheel width wheelW).
           for (const sd2 of [-halfW, halfW]) { const e = t.height(hx - ey * sd2, hy + ex * sd2) + Rw; if (e > E) E = e; }
-          E -= wh.sink || 0;                                   // колесо тонет в рыхлом грунте
+          E -= wh.sink || 0;                                   // the wheel sinks into loose ground
           const ln = (mz - E) / a.uz;
           if (ln >= droopL) { l = droopL; break; }
           l = Math.max(ln, Lmin - 0.35);
@@ -520,7 +520,7 @@ class Rover {
         const lc = Math.max(l, Lmin - 0.35);
         const hx2 = mx - a.ux * lc, hy2 = my - a.uy * lc, hz2 = mz - a.uz * lc;
         t.normal(hx2, hy2, nrm);
-        // Скорость точки контакта.
+        // Contact point velocity.
         const px = hx2 - nrm[0] * Rw, py = hy2 - nrm[1] * Rw, pz = hz2 - nrm[2] * Rw;
         const rx = px - p[0], ry = py - p[1], rz = pz - p[2];
         const vx = v[0] + om[1] * rz - om[2] * ry, vy = v[1] + om[2] * rx - om[0] * rz, vz = v[2] + om[0] * ry - om[1] * rx;
@@ -529,29 +529,29 @@ class Rover {
         if (l < Lmin) { Fn += kS * 22 * (Lmin - l); closeMax = Math.max(closeMax, -vn); }
         if (Fn < 0) Fn = 0;
         wh.Fn = Fn;
-        // Оси трения в плоскости касания.
+        // Friction axes in the contact plane.
         let fx = wfx - nrm[0] * (wfx * nrm[0] + wfy * nrm[1] + wfz * nrm[2]);
         let fy = wfy - nrm[1] * (wfx * nrm[0] + wfy * nrm[1] + wfz * nrm[2]);
         let fz = wfz - nrm[2] * (wfx * nrm[0] + wfy * nrm[1] + wfz * nrm[2]);
         const fk = 1 / (Math.hypot(fx, fy, fz) || 1); fx *= fk; fy *= fk; fz *= fk;
         const lx = nrm[1] * fz - nrm[2] * fy, ly = nrm[2] * fx - nrm[0] * fz, lz = nrm[0] * fy - nrm[1] * fx;
         const vf = vx * fx + vy * fy + vz * fz, vl = vx * lx + vy * ly + vz * lz;
-        // Свойства грунта: мягкие участки вязнут сильнее.
+        // Soil properties: soft patches bog down more.
         const soft = 0.5 + 0.5 * vnoise((px + t.gx0) / 14, (py + t.gy0) / 14, 31);
-        // Осадка колеса по Бекеру: Fn ~ b*k*z^(n+0.5)*sqrt(D). Рыхлые участки мягче; тяжёлая техника тонет глубже.
+        // Wheel sinkage after Bekker: Fn ~ b*k*z^(n+0.5)*sqrt(D). Loose patches are softer; heavy vehicles sink deeper.
         const soil = SOIL[t.body] || SOIL.moon, bW = cfg.wheelW, Dw = 2 * Rw;
         const kEff = soil.kphi * (1 - 0.6 * soft) + soil.kc / bW;
         let zs = Math.pow(Math.max(Fn, 1) / (bW * kEff * Math.sqrt(Dw) * 0.55), 1 / (soil.n + 0.5));
         zs = Math.min(zs, 0.4 * Rw);
-        // Для высоты колеса берём осадку от статической нагрузки (а не мгновенной): иначе обратная связь «давление-осадка» раскачивает подвеску.
+        // For wheel height we use the sinkage from static load (not instantaneous): otherwise the pressure-sinkage feedback makes the suspension oscillate.
         wh.sink = Math.min(0.08, 0.4 * Rw, Math.pow((m * g / nOn) / (bW * kEff * Math.sqrt(Dw) * 0.55), 1 / (soil.n + 0.5)));
-        const Lc = Math.max(Math.sqrt(Dw * zs), 0.04);                             // длина пятна контакта
-        const Rc = bW * kEff * Math.pow(zs, soil.n + 1) / (soil.n + 1);            // сопротивление выдавливания колеи
-        const crr = Rc / Math.max(Fn, 1) + 0.02 * (cfg.crr / 0.15);                // + гистерезис шины
+        const Lc = Math.max(Math.sqrt(Dw * zs), 0.04);                             // contact patch length
+        const Rc = bW * kEff * Math.pow(zs, soil.n + 1) / (soil.n + 1);            // rut-pressing resistance
+        const crr = Rc / Math.max(Fn, 1) + 0.02 * (cfg.crr / 0.15);                // + tyre hysteresis
         const tanPhi = Math.tan(soil.phi * D2R * (1 - 0.1 * soft)) * (cfg.mu / 0.58);
-        const muFn = Fn * tanPhi + soil.c * bW * Lc;                               // предельная сила сцепления (трение + сцепление грунта)
+        const muFn = Fn * tanPhi + soil.c * bW * Lc;                               // limit traction force (soil friction + cohesion)
         const Lk = Lc / soil.K;
-        // Момент двигателя: ограничен пиком, мощностью и предельной скоростью колеса.
+        // Motor torque: limited by peak, power and the wheel speed limit.
         const wspd = wh.omega * Rw;
         let T = throttle * cfg.tpeak * (cfg.tpeak > 0 ? derate : 0);
         const vlim = cfg.vmax * (inp.boost ? 1 : 1);
@@ -565,19 +565,19 @@ class Rover {
         if (this.opts.tractionControl && T * (vf >= 0 ? 1 : -1) > 0 && Math.abs(kappa) > 0.22) {
           T *= 1 / (1 + (Math.abs(kappa) - 0.22) * 7);
         }
-        // Сила тяги по Яноши-Ханамото: растёт с проскальзыванием и насыщается на пределе сцепления.
+        // Traction force after Janosi-Hanamoto: grows with slip and saturates at the traction limit.
         const xk = Math.abs(kappa) * Lk;
         let Fxw = Math.sign(kappa) * muFn * jh(xk);
         const dF = muFn * Lk * jhd(xk) * Rw / Math.max(Math.abs(vf), 0.6);
-        // Ролики тормоза и сопротивление качению.
+        // Brake rollers and rolling resistance.
         const roll = crr * Fn * Math.tanh(vf / 0.06);
         const Tnet = T - Rw * (Fxw + roll);
-        // Неявный шаг по скорости колеса (линеаризация силы сцепления): устойчив при большой жёсткости контакта.
+        // Implicit wheel speed step (traction force linearisation): stable at high contact stiffness.
         const dw = dt * Tnet / (cfg.wheelI + dt * Rw * dF);
         wh.omega += dw;
         Fxw += dF * dw;
         Fxw = clamp(Fxw, -muFn, muFn);
-        // Тормоз — сухое трение: гасит скорость колеса, но не может развернуть его.
+        // The brake is dry friction: it slows the wheel but cannot reverse it.
         const db = dt * cfg.brakeT * brakeCmd / cfg.wheelI;
         if (db > 0) wh.omega -= Math.sign(wh.omega) * Math.min(Math.abs(wh.omega), db);
         pMech += T * wh.omega;
@@ -590,7 +590,7 @@ class Rover {
         Fx += FX; Fy += FY; Fz += FZ;
         Tx += ry * FZ - rz * FY; Ty += rz * FX - rx * FZ; Tz += rx * FY - ry * FX;
       } else {
-        // Колесо в воздухе: свободно вращается, подчиняясь двигателю и тормозу.
+        // Wheel in the air: spins freely, driven by the motor and brake.
         const wspd = wh.omega * Rw;
         let T = throttle * cfg.tpeak * derate;
         if (T * wspd > 0) T *= clamp((cfg.vmax * 1.04 - Math.abs(wspd)) / (0.12 * cfg.vmax + 0.05), 0, 1);
@@ -604,7 +604,7 @@ class Rover {
 
     for (const wh of wheels) wh.spin = (wh.spin || 0) + wh.omega * dt;
 
-    // ---- касание корпуса о грунт
+    // ---- hull touching the ground
     for (let k = 0; k < this.hullPts.length; k++) {
       const hp = this.hullPts[k];
       const wx = p[0] + a.fx * hp[0] + a.lx * hp[1] + a.ux * hp[2];
@@ -618,7 +618,7 @@ class Rover {
       const vn = vx * nrm[0] + vy * nrm[1] + vz * nrm[2];
       let Fn = m * 260 * Math.min(pen, 1.0) * (1 + pen / 0.25) + m * 22 * Math.max(0, -vn);
       closeMax = Math.max(closeMax, -vn);
-      // Трение скольжения о грунт.
+      // Sliding friction on the ground.
       const tx = vx - nrm[0] * vn, ty = vy - nrm[1] * vn, tz = vz - nrm[2] * vn, tl = Math.hypot(tx, ty, tz);
       const fr = 0.45 * Fn * Math.tanh(tl / 0.05) / (tl || 1);
       const FX = nrm[0] * Fn - tx * fr, FY = nrm[1] * Fn - ty * fr, FZ = nrm[2] * Fn - tz * fr;
@@ -626,20 +626,20 @@ class Rover {
       Tx += ry * FZ - rz * FY; Ty += rz * FX - rx * FZ; Tz += rx * FY - ry * FX;
     }
 
-    // ---- атмосфера Марса: ничтожное сопротивление (плотность ~0.015 кг/м3)
+    // ---- Mars atmosphere: negligible drag (density ~0.015 kg/m3)
     if (t.body === 'mars') {
       const rho = 0.020 * Math.exp(-Math.max(t.altitude(p[0], p[1], p[2]), -8000) / 11100), sp = Math.hypot(v[0], v[1], v[2]);
       const f = -0.5 * rho * 4.5 * sp;
       Fx += f * v[0]; Fy += f * v[1]; Fz += f * v[2];
     }
     if (this.extF) { Fx += this.extF[0]; Fy += this.extF[1]; Fz += this.extF[2]; }
-    // Мягкая граница зоны: у края куска рельефа вездеход отталкивается.
+    // Soft zone boundary: near the terrain patch edge the rover is pushed back.
     const edge = 90;
     const ox = Math.max(0, t.x0 + edge - p[0]) - Math.max(0, p[0] - (t.x1 - edge));
     const oy = Math.max(0, t.y0 + edge - p[1]) - Math.max(0, p[1] - (t.y1 - edge));
     Fx += ox * m * 2.2 * (1 + Math.abs(ox) / 30); Fy += oy * m * 2.2 * (1 + Math.abs(oy) / 30);
 
-    // ---- сила покоя: «якорь» удерживает остановившийся вездеход на склоне (трение покоя)
+    // ---- static force: an "anchor" holds a stopped rover on a slope (static friction)
     if ((this.park || (brk > 0.3 && this.opts.hillHold)) && contacts >= 3 && aspd < 0.3 && !dead) {
       if (!this.anchor) this.anchor = [p[0], p[1], p[2]];
       const an = this.anchor, ks = m * 45, cs = 2 * 0.8 * Math.sqrt(ks * m);
@@ -651,21 +651,21 @@ class Rover {
       const lim = 0.85 * cfg.mu * 0.7 * fN, mag = Math.hypot(sx, sy, sz);
       if (mag > lim) {
         const k = lim / mag; sx *= k; sy *= k; sz *= k;
-        an[0] = p[0] + sx / ks; an[1] = p[1] + sy / ks; an[2] = p[2] + sz / ks;   // якорь сползает: вездеход скользит
+        an[0] = p[0] + sx / ks; an[1] = p[1] + sy / ks; an[2] = p[2] + sz / ks;   // the anchor creeps: the rover slides
       }
       Fx += sx; Fy += sy; Fz += sz;
     } else this.anchor = null;
 
-    // ---- интегрирование тела
+    // ---- body integration
     v[0] += Fx / m * dt; v[1] += Fy / m * dt; v[2] += Fz / m * dt;
-    // угловое: в системе тела
+    // angular: in the body frame
     const wbx = a.fx * om[0] + a.fy * om[1] + a.fz * om[2], wby = a.lx * om[0] + a.ly * om[1] + a.lz * om[2], wbz = a.ux * om[0] + a.uy * om[1] + a.uz * om[2];
     const tbx = a.fx * Tx + a.fy * Ty + a.fz * Tz, tby = a.lx * Tx + a.ly * Ty + a.lz * Tz, tbz = a.ux * Tx + a.uy * Ty + a.uz * Tz;
     const I = this.I;
     const dwx = (tbx - (I[2] - I[1]) * wby * wbz) / I[0], dwy = (tby - (I[0] - I[2]) * wbz * wbx) / I[1], dwz = (tbz - (I[1] - I[0]) * wbx * wby) / I[2];
     const nbx = wbx + dwx * dt, nby = wby + dwy * dt, nbz = wbz + dwz * dt;
     om[0] = a.fx * nbx + a.lx * nby + a.ux * nbz; om[1] = a.fy * nbx + a.ly * nby + a.uy * nbz; om[2] = a.fz * nbx + a.lz * nby + a.uz * nbz;
-    // ограничители от численных выбросов
+    // limiters against numerical spikes
     const vmag = Math.hypot(v[0], v[1], v[2]); if (vmag > 60) { const s = 60 / vmag; v[0] *= s; v[1] *= s; v[2] *= s; }
     const wmag = Math.hypot(om[0], om[1], om[2]); if (wmag > 12) { const s = 12 / wmag; om[0] *= s; om[1] *= s; om[2] *= s; }
     p[0] += v[0] * dt; p[1] += v[1] * dt; p[2] += v[2] * dt;
@@ -673,10 +673,10 @@ class Rover {
     const dq = qmul({ w: 0, x: om[0], y: om[1], z: om[2] }, q);
     q.w += dq.w * hw; q.x += dq.x * hw; q.y += dq.y * hw; q.z += dq.z * hw; qnorm(q);
 
-    // ---- страховка от проваливания: штрафная сила не успела остановить корпус -> выталкиваем по нормали
+    // ---- anti-fall-through: the penalty force did not stop the hull in time -> push out along the normal
     this._safety(dt);
 
-    // ---- повреждения от ударов и опрокидывание
+    // ---- damage from impacts and rollover
     this.impactCool -= dt;
     this.stats.maxImpact = Math.max(this.stats.maxImpact * Math.exp(-dt), closeMax);
     if (closeMax > 1.6 && this.impactCool <= 0 && this.opts.damage) {
@@ -688,7 +688,7 @@ class Rover {
     }
     if (a.uz < 0.25) this.flipTime += dt; else this.flipTime = Math.max(0, this.flipTime - dt * 2);
 
-    // ---- энергия, тепло, пыль
+    // ---- energy, heat, dust
     const Pel = pMech > 0 ? pMech / 0.88 : pMech * 0.4;
     this.stats.speed = this.speed; this.stats.contacts = contacts; this.stats.slip = slipMax;
     this._pMech = pMech; this._Pel = Pel;
@@ -700,8 +700,8 @@ class Rover {
     return this;
   }
 
-  /** Жёсткая проверка после шага: ни одна опорная точка корпуса не должна уходить под грунт глубже 15 см.
-      Если ушла (удар на большой скорости, большой шаг времени) — позиционная коррекция и погашение скорости «внутрь». */
+  /** Hard check after a step: no hull support point may go deeper than 15 cm under the ground.
+      If it did (high-speed impact, large time step): positional correction and damping the velocity "inward". */
   _safety(dt) {
     const t = this.terrain, p = this.pos, v = this.vel, om = this.w, cfg = this.cfg;
     if (!Number.isFinite(p[0] + p[1] + p[2] + v[0] + v[1] + v[2] + this.q.w + this.q.x + om[0])) {
@@ -719,7 +719,7 @@ class Rover {
       const z = p[2] + a.fz * hp[0] + a.lz * hp[1] + a.uz * hp[2], pen = t.height(x, y) - z;
       if (pen > worst) { worst = pen; wx = x; wy = y; }
     }
-    // центр масс под землёй — крайний случай: поднимаем целиком
+    // centre of mass underground is the extreme case: lift the whole body
     const gc = t.height(p[0], p[1]);
     if (p[2] < gc - 0.25) { p[2] = gc + 0.6; if (v[2] < 0) v[2] = 0; this.stats.fixes = (this.stats.fixes || 0) + 1; }
     else if (worst > 0.15) {
@@ -736,7 +736,7 @@ class Rover {
     }
   }
 
-  /** Медленные процессы (каждые ~0,25 с модельного времени): батарея, тепло, пыль. */
+  /** Slow processes (every ~0.25 s of model time): battery, heat, dust. */
   _slow(dt, env) {
     const cfg = this.cfg, t = this.terrain, p = this.pos;
     const pel = this._pelAcc / dt; this._acc = 0; this._pelAcc = 0;
@@ -750,11 +750,11 @@ class Rover {
       solar = cfg.solarKw * 1000 * inten * cosI * (shadow ? 0.08 : 1) * Math.min(atm, 1) * (1 - 0.65 * this.dust);
       this.inShadow = shadow;
     }
-    // Нагрев/охлаждение корпуса: приёмник тепла — смесь грунта и холодного неба.
+    // Hull heating/cooling: the heat sink is a mix of ground and cold sky.
     let heater = 0;
     if (env) {
       const sink = env.temp * 0.55 + (t.body === 'moon' ? -45 : -35) * 0.45;
-      const rad = this.temp > 40 ? 3.2 * (this.temp - 40) : 0;           // радиаторы
+      const rad = this.temp > 40 ? 3.2 * (this.temp - 40) : 0;           // radiators
       const loss = cfg.thermK * (this.temp - sink) + rad;
       const waste = Math.max(0, pel) * 0.12 + cfg.aux * 1000 * 0.6;
       const target = cfg.crewed ? 10 : -15;
@@ -768,29 +768,29 @@ class Rover {
     const draw = pel + cfg.aux * 1000 * (this.battery > 0 ? 1 : 0) + heater - solar;
     this.battery = clamp(this.battery - draw * dt / 3.6e6, 0, cfg.batteryKwh);
     this.stats.power = pel + cfg.aux * 1000 + heater; this.stats.solar = solar;
-    // Пыль на панелях: от движения, от бури; ветер на Марсе понемногу сдувает.
+    // Dust on panels: from driving and storms; on Mars the wind blows it off slowly.
     if (env) {
       this.dust += Math.min(Math.abs(this.speed), 6) * 4e-5 * dt * 0.25 + (env.storm || 0) * 3e-4 * dt * 0.25;
       if (t.body === 'mars') this.dust -= (env.wind > 14 ? 1.2e-4 : 1.2e-5) * dt * 0.25;
       this.dust = clamp(this.dust, 0, 1);
       if (cfg.crewed) this.dose += (t.body === 'moon' ? 1.37 : 0.8) / 24 / 3600 * dt * cfg.shield;
     }
-    if (this.battery <= 0 && this.stats.solar <= 1) { /* обесточен: ждём солнца */ }
+    if (this.battery <= 0 && this.stats.solar <= 1) { /* no power: wait for the Sun */ }
   }
 
   cleanPanels() { this.dust = Math.max(0, this.dust * 0.12); this.battery = Math.max(0, this.battery - 0.02); }
 
-  /** Переворот: плавно ставит вездеход на колёса (платная услуга). */
+  /** Flip: smoothly puts the rover back on its wheels (paid service). */
   rightVehicle() {
     const h = this.heading;
     this.place(this.pos[0], this.pos[1], h);
     this.pos[2] += 0.8; this.flipTime = 0;
   }
 }
-// множитель сцепления среды (резерв для будущих условий); сейчас 1
+// environment grip multiplier (reserve for future conditions); currently 1
 function env_mu(env) { return 1; }
 
-// ======================================================================= пешеход
+// ======================================================================= pedestrian
 class Walker {
   constructor(cfg, terrain) {
     this.cfg = cfg; this.terrain = terrain; this.pos = [0, 0, 0]; this.vel = [0, 0, 0]; this.yaw = 0; this.face = 0; this.lockFace = false;
@@ -810,7 +810,7 @@ class Walker {
     const wl = Math.hypot(wx, wy) || 1;
     const n = t.normal(p[0], p[1], this._n, 0.5), slope = Math.acos(clamp(n[2], -1, 1)) * R2D;
     const top = (inp.sprint ? 2.3 : 1.1) * (dead ? 0.15 : 1);
-    // Склон замедляет подъём, спуск тоже требует осторожности; на крутом склоне грунт осыпается.
+    // Slope slows the climb, and descending also needs care; on a steep slope the ground crumbles.
     const gradeAlong = (wx / wl) * (-n[0] / n[2]) + (wy / wl) * (-n[1] / n[2]);
     const sf = clamp(1 - 2.2 * Math.max(gradeAlong, 0) - 0.5 * Math.max(-gradeAlong, 0), 0.12, 1.1) * (slope > 28 ? 0.3 : 1);
     const dvx = wx / wl * top * sf * (Math.abs(inp.fwd) + Math.abs(inp.strafe) > 0 ? 1 : 0);
@@ -818,8 +818,8 @@ class Walker {
     if (this.onGround) {
       const k = Math.min(1, dt * 6);
       v[0] += (dvx - v[0]) * k; v[1] += (dvy - v[1]) * k;
-      if (slope > 30) { v[0] += n[0] * g * 0.6 * dt; v[1] += n[1] * g * 0.6 * dt; }   // сползание
-      // скорость вдоль поверхности
+      if (slope > 30) { v[0] += n[0] * g * 0.6 * dt; v[1] += n[1] * g * 0.6 * dt; }   // sliding down
+      // speed along the surface
       const vn = v[0] * n[0] + v[1] * n[1];
       v[2] = -(n[0] * v[0] + n[1] * v[1]) / n[2] - 0.0 * vn;
       if (inp.jump && !dead) { v[2] = 2.2 * Math.sqrt(g / 1.62); this.onGround = false; }
@@ -828,14 +828,14 @@ class Walker {
       const k = Math.min(1, dt * 0.6);
       v[0] += (dvx - v[0]) * k; v[1] += (dvy - v[1]) * k;
     }
-    // Корпус поворачивается в сторону движения (как в играх от третьего лица); от первого лица смотрит туда же, куда камера.
+    // The body turns toward the direction of motion (as in third-person games); in first person it looks where the camera looks.
     const hsp = Math.hypot(v[0], v[1]);
     if (this.lockFace) this.face = this.yaw;
     else if (hsp > 0.2) { let d = Math.atan2(v[0], v[1]) - this.face; d = Math.atan2(Math.sin(d), Math.cos(d)); this.face += d * Math.min(1, dt * 8); }
     p[0] += v[0] * dt; p[1] += v[1] * dt; p[2] += v[2] * dt;
     const gh = t.height(p[0], p[1]);
     if (p[2] <= gh + (this.onGround ? 0.12 : 0)) {
-      if (!this.onGround && v[2] < -3.2) {          // жёсткое приземление
+      if (!this.onGround && v[2] < -3.2) {          // hard landing
         this.damage = Math.min(100, this.damage + (-v[2] - 3.2) * 12); this.events.push({ type: 'impact', v: -v[2] });
         if (this.damage >= 100) { this.status = 'dead'; this.events.push({ type: 'destroyed' }); }
       }
@@ -843,7 +843,7 @@ class Walker {
     } else if (this.onGround && p[2] > gh + 0.25) this.onGround = false;
     this.time += dt; this.odo += Math.hypot(v[0], v[1]) * dt;
     const spd = this.speed;
-    // скафандр: потребление растёт с нагрузкой
+    // spacesuit: consumption grows with load
     const drawW = this.cfg.aux * 1000 * (1 + 2.4 * (spd / 1.5) ** 2) * (this.onGround ? 1 : 0.8);
     this.battery = Math.max(0, this.battery - drawW * dt / 3.6e6);
     this.stats.power = drawW; this.stats.speed = spd;
@@ -854,10 +854,10 @@ class Walker {
   rightVehicle() {}
 }
 
-// ======================================================================= дрон
-/** Конфигурации дронов. Марс: многороторный вертолёт по мотивам Ingenuity и концепции Mars Science Helicopter
-    (подъёмная сила падает вместе с плотностью атмосферы). Луна: атмосферы нет, роторы бесполезны, поэтому
-    ракетный «прыгун» с запасом топлива (концепт, а не существующий аппарат). */
+// ======================================================================= drone
+/** Drone configurations. Mars: multirotor helicopter inspired by Ingenuity and the Mars Science Helicopter concept
+    (lift falls together with atmospheric density). Moon: no atmosphere, rotors are useless, so a
+    rocket "hopper" with a propellant reserve (a concept, not an existing vehicle). */
 function droneConfig(body) {
   const base = {
     key: 'drone', drone: true, crewed: false, wheelR: 0, mounts: null, steer: [], steerMax: 0.5, mu: 0.6, crr: 0, zeta: 0.5, freq: 2,
@@ -880,7 +880,7 @@ class Drone {
   constructor(cfg, terrain, opts = {}) {
     this.cfg = cfg; this.terrain = terrain; this.opts = Object.assign({ damage: true, assist: true }, opts);
     this.pos = [0, 0, 0]; this.vel = [0, 0, 0]; this.q = { w: 1, x: 0, y: 0, z: 0 }; this.w = [0, 0, 0];
-    this.input = { fwd: 0, strafe: 0, climb: 0, yaw: 0 }; this.cmd = null;       // cmd: {vx, vy, vz, yaw} — команда автопилота
+    this.input = { fwd: 0, strafe: 0, climb: 0, yaw: 0 }; this.cmd = null;       // cmd: {vx, vy, vz, yaw} is the autopilot command
     this.battery = cfg.batteryKwh; this.damage = 0; this.dose = 0; this.dust = 0; this.temp = 0; this.status = 'ok';
     this.thrust = 0; this.landed = true; this.altTarget = null; this.time = 0; this.odo = 0; this.events = []; this.impactCool = 0;
     this.heater = false; this.park = false; this.wheels = []; this.flipTime = 0; this._ax = {}; this._n = [0, 0, 1]; this._acc = 0; this._eAcc = 0;
@@ -888,7 +888,7 @@ class Drone {
     this.pts = [];
     const [a, b, c, o] = cfg.hull;
     for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) this.pts.push([sx * a, sy * b, o + sz * c]);
-    this.legIdx = this.pts.length;                  // после корпуса идут опоры
+    this.legIdx = this.pts.length;                  // supports follow the hull
     for (const l of cfg.legs) this.pts.push(l.slice());
   }
   get mass() { return this.cfg.unit === 'kg' ? this.cfg.dry + this.battery : this.cfg.mass; }
@@ -901,7 +901,7 @@ class Drone {
   get speed() { return Math.hypot(this.vel[0], this.vel[1]); }
   get upZ() { return axes(this.q, this._ax).uz; }
   agl() { return this.pos[2] - 0.34 - this.terrain.height(this.pos[0], this.pos[1]); }
-  /** Наибольшая безопасная скорость снижения на данной высоте: успеть погасить её тягой до касания. */
+  /** Highest safe descent speed at a given height: it must be possible to cancel it with thrust before touchdown. */
   vSafeDown() {
     const aUp = Math.max(0.3, this.cfg.tpeak * (1 - 0.5 * this.damage / 100) / this.mass - this.terrain.g);
     return clamp(0.3 + Math.sqrt(0.5 * aUp * Math.max(this.agl(), 0)), 0.3, this.cfg.vz * 0.8);
@@ -914,7 +914,7 @@ class Drone {
     const alt = t.altitude(p[0], p[1], p[2]);
     const rho = moon ? 0 : 0.020 * Math.exp(-clamp(alt, -8000, 20000) / 11100);
     this.stats.rho = rho;
-    // ---- желаемая скорость (из команд игрока или автопилота)
+    // ---- desired velocity (from player commands or the autopilot)
     let vdx, vdy, vdz, yawRate;
     if (this.cmd) { vdx = this.cmd.vx; vdy = this.cmd.vy; vdz = this.cmd.vz; yawRate = this.cmd.yaw * cfg.yawMax; }
     else {
@@ -922,27 +922,27 @@ class Drone {
       vdx = Math.sin(hd) * f + Math.cos(hd) * s; vdy = Math.cos(hd) * f - Math.sin(hd) * s;
       if (Math.abs(inp.climb) > 0.05) { vdz = inp.climb > 0 ? inp.climb * cfg.vz : inp.climb * cfg.vz * 0.7; this.altTarget = null; }
       else {
-        if (this.altTarget == null) this.altTarget = p[2] + (v[2] > 0 ? v[2] * v[2] / (1.7 * g) : 0);   // тормозной путь вверх под действием тяжести
+        if (this.altTarget == null) this.altTarget = p[2] + (v[2] > 0 ? v[2] * v[2] / (1.7 * g) : 0);   // braking distance upward under gravity
         const err = this.altTarget - p[2];
         vdz = err > 0 ? Math.min(0.9 * err, Math.sqrt(2 * 0.8 * g * err)) : Math.max(0.9 * err, -1.5);
-        if (this.agl() < 0.45 && Math.abs(inp.fwd) < 0.05 && Math.abs(inp.strafe) < 0.05) { vdz = -0.4; this.altTarget = null; }   // у самой земли без команд — садимся
+        if (this.agl() < 0.45 && Math.abs(inp.fwd) < 0.05 && Math.abs(inp.strafe) < 0.05) { vdz = -0.4; this.altTarget = null; }   // right at the ground with no commands: land
       }
       yawRate = clamp(inp.yaw, -1, 1) * cfg.yawMax;
-      // помощник посадки: у земли скорость снижения ограничивается, чтобы не разбить опоры
+      // landing assist: near the ground the descent speed is limited so the supports are not broken
       if (this.opts.assist && vdz < 0) vdz = Math.max(vdz, -this.vSafeDown());
     }
-    // ---- внешний контур: ускорение -> вектор тяги
+    // ---- outer loop: acceleration -> thrust vector
     const wind = env && !moon ? [Math.sin(env.windDir || 0) * (env.wind || 0), Math.cos(env.windDir || 0) * (env.wind || 0)] : [0, 0];
     let adx = 1.25 * (vdx - v[0]), ady = 1.25 * (vdy - v[1]), adz = 3.2 * (vdz - v[2]);
     const idle = this.landed && vdz <= 0.05 && Math.hypot(vdx, vdy) < 0.05 && !this.cmd;
-    // допустимый наклон: горизонтальное ускорение не больше (g + ускорение вверх) * tan(tilt)
+    // allowed tilt: horizontal acceleration no more than (g + upward acceleration) * tan(tilt)
     const tz = Math.max(g + adz, 0.2 * g), ahMax = tz * Math.tan(cfg.tilt), ah = Math.hypot(adx, ady);
     if (ah > ahMax) { adx *= ahMax / ah; ady *= ahMax / ah; }
     let tx = m * adx, ty = m * ady, tzv = m * (g + adz);
     if (tzv < 0.15 * m * g) tzv = 0.15 * m * g;
     let Tmag = Math.hypot(tx, ty, tzv);
     const ud = [tx / Tmag, ty / Tmag, tzv / Tmag];
-    // доступная тяга: у ротора зависит от плотности атмосферы и эффекта земли; у ракетного двигателя постоянна
+    // available thrust: for a rotor it depends on atmospheric density and ground effect; a rocket engine is constant
     let ge = 1; const agl = this.agl();
     if (!moon) ge = 1 + 0.16 * Math.exp(-Math.max(agl, 0) / (2 * cfg.rotorR));
     let Tmax = cfg.tpeak * (moon ? 1 : clamp(rho / 0.017, 0.12, 2.6)) * ge;
@@ -951,28 +951,28 @@ class Drone {
     Tmax *= derate;
     let Tcmd = clamp(Tmag, 0, Tmax);
     if (dead || idle) Tcmd = 0;
-    // отклик двигателя
+    // engine response
     const tau = cfg.thrTau, kk = 1 - Math.exp(-dt / tau);
     this.thrust += (Tcmd - this.thrust) * kk;
     if (dead) this.thrust *= 0.9;
-    // ---- внутренний контур: ориентация (ось «вверх» к направлению тяги) и рыскание
+    // ---- inner loop: attitude ("up" axis toward the thrust direction) and yaw
     const ux = a.ux, uy = a.uy, uz = a.uz;
     const ex = uy * ud[2] - uz * ud[1], ey = uz * ud[0] - ux * ud[2], ez = ux * ud[1] - uy * ud[0];      // u × ud
     let wcx0 = 5.2 * ex, wcy0 = 5.2 * ey, wcz0 = 5.2 * ez;
-    const wl = Math.hypot(wcx0, wcy0, wcz0); if (wl > 1.4) { const k = 1.4 / wl; wcx0 *= k; wcy0 *= k; wcz0 *= k; }     // не раскачиваем аппарат: угловая скорость ограничена
+    const wl = Math.hypot(wcx0, wcy0, wcz0); if (wl > 1.4) { const k = 1.4 / wl; wcx0 *= k; wcy0 *= k; wcz0 *= k; }     // do not make the vehicle swing: angular velocity is limited
     const wc = [wcx0, wcy0, wcz0];
-    const nu = om[0] * ux + om[1] * uy + om[2] * uz;                                                       // скорость вращения вокруг оси «вверх»
+    const nu = om[0] * ux + om[1] * uy + om[2] * uz;                                                       // rotation rate about the "up" axis
     const wcx = wc[0] + ux * yawRate, wcy = wc[1] + uy * yawRate, wcz = wc[2] + uz * yawRate;
     const kd = 9;
     const awx = kd * (wcx - om[0]), awy = kd * (wcy - om[1]), awz = kd * (wcz - om[2]);
-    // в системе тела, ограничение по моменту
+    // in the body frame, torque limit
     let abx = a.fx * awx + a.fy * awy + a.fz * awz, aby = a.lx * awx + a.ly * awy + a.lz * awz, abz = a.ux * awx + a.uy * awy + a.uz * awz;
     const am = cfg.angMax * (this.thrust > 1 || moon ? 1 : 0.15);
     abx = clamp(abx, -am, am); aby = clamp(aby, -am, am); abz = clamp(abz, -am * 0.6, am * 0.6);
     if (dead || this.landed && idle) { abx = aby = abz = 0; }
     const Ix = cfg.inertia[0], Iy = cfg.inertia[1], Iz = cfg.inertia[2];
     const tbx = Ix * abx, tby = Iy * aby, tbz = Iz * abz;
-    // ---- силы
+    // ---- forces
     const T = this.thrust;
     let Fx = a.ux * T, Fy = a.uy * T, Fz = a.uz * T - m * g;
     if (!moon) {
@@ -997,7 +997,7 @@ class Drone {
       const FX = nrm[0] * Fn - tx * fr, FY = nrm[1] * Fn - ty * fr, FZ = nrm[2] * Fn - tz * fr;
       Fx += FX; Fy += FY; Fz += FZ; Tx += ry * FZ - rz * FY; Ty += rz * FX - rx * FZ; Tz += rx * FY - ry * FX;
     }
-    // посадка: опоры стоят, тяга выключена -> «якорь» удерживает от скольжения
+    // landing: supports on the ground, thrust off -> an "anchor" prevents sliding
     const wasLanded = this.landed;
     this.landed = legHit >= 2 && Math.hypot(v[0], v[1], v[2]) < 0.6 && vdz <= 0.05 && (!this.cmd || this.cmd.landing);
     if (this.landed && idle && !dead) {
@@ -1006,7 +1006,7 @@ class Drone {
       Fx += -ks * (p[0] - an[0]) - cs * v[0]; Fy += -ks * (p[1] - an[1]) - cs * v[1];
     } else this.anchor = null;
     if (this.landed) this.altTarget = null;
-    // ---- интегрирование
+    // ---- integration
     v[0] += Fx / m * dt; v[1] += Fy / m * dt; v[2] += Fz / m * dt;
     const wbx = a.fx * om[0] + a.fy * om[1] + a.fz * om[2], wby = a.lx * om[0] + a.ly * om[1] + a.lz * om[2], wbz = a.ux * om[0] + a.uy * om[1] + a.uz * om[2];
     const gbx = a.fx * Tx + a.fy * Ty + a.fz * Tz, gby = a.lx * Tx + a.ly * Ty + a.lz * Tz, gbz = a.ux * Tx + a.uy * Ty + a.uz * Tz;
@@ -1019,7 +1019,7 @@ class Drone {
     const q = this.q, hw = 0.5 * dt, dq = qmul({ w: 0, x: om[0], y: om[1], z: om[2] }, q);
     q.w += dq.w * hw; q.x += dq.x * hw; q.y += dq.y * hw; q.z += dq.z * hw; qnorm(q);
     this._safety(dt);
-    // ---- повреждения
+    // ---- damage
     this.impactCool -= dt;
     this.stats.maxImpact = Math.max(this.stats.maxImpact * Math.exp(-dt), closeMax);
     if (this.opts.damage && this.impactCool <= 0 && (closeMax > 2.2 || bodyHit > 0.8)) {
@@ -1028,7 +1028,7 @@ class Drone {
       if (this.damage >= 100) { this.status = 'destroyed'; this.events.push({ type: 'destroyed' }); }
     }
     if (a.uz < 0.2) this.flipTime += dt; else this.flipTime = Math.max(0, this.flipTime - dt * 2);
-    // ---- расход
+    // ---- consumption
     let Pel = cfg.aux * 1000;
     if (moon) { const md = T / (cfg.isp * 9.80665); this.battery = Math.max(0, this.battery - md * dt); this.stats.fuelFlow = md; }
     else if (T > 0.5) {
@@ -1076,7 +1076,7 @@ class Drone {
       this.dose += (t.body === 'moon' ? 1.37 : 0.8) / 24 / 3600 * dt;
     }
     if (moon) {
-      // концепт: узел ISRU добывает топливо из реголита днём, пока дрон стоит
+      // concept: an ISRU unit extracts propellant from regolith by day while the drone is parked
       const gain = this.landed ? cfg.refuelKgPerH * Math.max(0, env ? env.sunDir[2] : 0) * dt / 3600 : 0;
       this.battery = clamp(this.battery + gain, 0, cfg.batteryKwh); this.stats.solar = gain * 3600 / dt; this.stats.power = pel;
     } else {
@@ -1087,7 +1087,7 @@ class Drone {
   rightVehicle() { const h = this.heading; this.place(this.pos[0], this.pos[1], h); this.pos[2] += 0.8; }
 }
 
-/** Автопилот дрона: взлёт, полёт над маршрутом на безопасной высоте с огибанием рельефа, посадка в конце. */
+/** Drone autopilot: take-off, flight along the route at a safe height avoiding terrain, landing at the end. */
 const DroneAutopilot = {
   control(d, terrain, route, st, dt) {
     const cfg = d.cfg, p = d.pos;
@@ -1098,40 +1098,40 @@ const DroneAutopilot = {
     let acc = 0, ti = best;
     while (ti < route.length - 1 && acc < look) { acc += Math.hypot(route[ti + 1][0] - route[ti][0], route[ti + 1][1] - route[ti][1]); ti++; }
     const tgt = route[ti], dx = tgt[0] - p[0], dy = tgt[1] - p[1], dist = Math.hypot(dx, dy) || 1, ux = dx / dist, uy = dy / dist;
-    // рельеф впереди: нужная высота = максимум высоты на пути + запас
+    // terrain ahead: required height = maximum height along the path + margin
     const ahead = clamp(10 + 9 * v, 25, 300); let zmax = terrain.height(p[0], p[1]);
     for (let s = 6; s <= ahead; s += 6) zmax = Math.max(zmax, terrain.height(p[0] + ux * s, p[1] + uy * s));
     const finalIdx = route.length - 1, toEnd = Math.hypot(route[finalIdx][0] - p[0], route[finalIdx][1] - p[1]);
     const lowEnergy = d.battery < 0.13 * cfg.batteryKwh;
     let altT = zmax + cfg.cruiseAGL, vh = cfg.vmax * (cfg.unit === 'kg' ? 0.62 : 0.85);
-    const ahMax = terrain.g * Math.tan(cfg.tilt) * 0.6;                      // горизонтальное торможение ограничено наклоном
-    if (st.finalStage) vh = Math.min(vh, Math.sqrt(2 * ahMax * Math.max(toEnd - 12, 0)) + 0.6);   // профиль торможения до точки посадки
+    const ahMax = terrain.g * Math.tan(cfg.tilt) * 0.6;                      // horizontal braking is limited by tilt
+    if (st.finalStage) vh = Math.min(vh, Math.sqrt(2 * ahMax * Math.max(toEnd - 12, 0)) + 0.6);   // braking profile to the landing point
     const landing = st.land || lowEnergy || (st.finalStage && toEnd < 25 + 3 * v);
     if (landing) {
       const gz = terrain.height(p[0], p[1]);
-      altT = gz + (d.agl() > 8 ? 3.34 : 0.2);                 // цель чуть ниже касания: прижимаемся к грунту, а не зависаем
+      altT = gz + (d.agl() > 8 ? 3.34 : 0.2);                 // target slightly below touchdown: press onto the ground rather than hover
       vh = st.finalStage && !lowEnergy ? clamp(toEnd * 0.35, 0.0, cfg.vmax * 0.6) : 0;
       if (lowEnergy) st.landingNow = true;
-      if (v > 4 && d.agl() > 6) altT = Math.max(altT, p[2]);   // пока не погасили скорость, не снижаемся
-      if (d.agl() < 1.5) vh = 0;                              // над самой землёй горизонтальную скорость гасим
+      if (v > 4 && d.agl() > 6) altT = Math.max(altT, p[2]);   // until speed is cancelled, do not descend
+      if (d.agl() < 1.5) vh = 0;                              // right above the ground we cancel horizontal speed
     }
-    if (p[2] < altT - 6) vh *= clamp(1 - (altT - p[2] - 6) / 12, 0.1, 1);       // сначала набираем высоту
+    if (p[2] < altT - 6) vh *= clamp(1 - (altT - p[2] - 6) / 12, 0.1, 1);       // climb first
     let vz = clamp(0.8 * (altT - p[2]), -cfg.vz * 0.7, cfg.vz);
     if (landing) vz = clamp(0.8 * (altT - p[2]), -d.vSafeDown(), 0.3);
-    if (landing && d.landed) { d.cmd = null; st.cmd = null; st.parked = true; return null; }   // сели: двигатели выключаем
+    if (landing && d.landed) { d.cmd = null; st.cmd = null; st.parked = true; return null; }   // landed: engines off
     let e = Math.atan2(dx, dy) - d.heading; e = Math.atan2(Math.sin(e), Math.cos(e));
     const toward = landing && vh < 0.2 ? 0 : 1;
     const speedF = Math.abs(e) > 0.9 ? 0.2 : 1;
     st.cmd = { vx: ux * vh * speedF * toward, vy: uy * vh * speedF * toward, vz, yaw: clamp(-e * 1.4, -1, 1), landing, target: tgt };
-    // yaw: положительный = влево (против часовой); e>0 значит цель справа -> отрицательный yaw
+    // yaw: positive = left (counter-clockwise); e>0 means the target is on the right -> negative yaw
     d.cmd = st.cmd;
     return st.cmd;
   },
 };
 
-// ======================================================================= автопилот
-/** Локальный планировщик: по уклонам вокруг строит карту проходимости 4 м, ищет путь A* к точке маршрута впереди
-    (обходя кратеры и валуны) и ведёт технику по нему «погоней за точкой». */
+// ======================================================================= autopilot
+/** Local planner: from slopes around it builds a 4 m traversability map, finds an A* path to a route point ahead
+    (avoiding craters and boulders) and drives the vehicle along it by "chasing a point". */
 const Autopilot = {
   plan(rover, terrain, route, st) {
     const cell = 4, H = 24, N = 2 * H + 1, p = rover.pos, lim = st.limit;
@@ -1143,7 +1143,7 @@ const Autopilot = {
       slope[k] = sl;
       cost[k] = sl > lim * 1.05 ? 0 : 1 + 5 * (sl / lim) * (sl / lim);
     }
-    // Валуны: ячейка 4 м крупнее многих камней, поэтому отмечаем их отдельно с запасом на колею.
+    // Boulders: a 4 m cell is larger than many rocks, so we mark them separately with a margin for the track.
     terrain.forEachRock(cx - (H + 2) * cell, cx + (H + 2) * cell, cy - (H + 2) * cell, cy + (H + 2) * cell, (rx, ry, rr) => {
       const h = 0.5 * rr; if (h < 0.14) return;
       const rad = rr + (h > 0.3 ? 1.6 : 1.1), i0 = Math.max(0, Math.floor((rx - rad - cx) / cell + H)), i1 = Math.min(N - 1, Math.ceil((rx + rad - cx) / cell + H));
@@ -1155,11 +1155,11 @@ const Autopilot = {
     });
     const si = Math.round((p[1] - cy) / cell + H) * N + Math.round((p[0] - cx) / cell + H);
     cost[si] = Math.max(cost[si], 1);
-    // цель: самая дальняя точка маршрута, которая ещё лежит в окне
+    // target: the farthest route point still inside the window
     const inWin = q => Math.abs(q[0] - cx) <= (H - 2) * cell && Math.abs(q[1] - cy) <= (H - 2) * cell;
     let gk = -1, gx = 0, gy = 0;
     for (let k = st.idx; k < route.length; k++) { if (inWin(route[k])) { gk = k; gx = route[k][0]; gy = route[k][1]; } else if (gk >= 0) break; }
-    if (gk < 0) {   // маршрут вне окна: идём в его сторону
+    if (gk < 0) {   // route outside the window: head toward it
       const q = route[Math.min(route.length - 1, st.idx + 10)], dx = q[0] - cx, dy = q[1] - cy, m = Math.max(Math.abs(dx), Math.abs(dy), 1) / ((H - 2) * cell);
       gx = cx + dx / m; gy = cy + dy / m;
     }
@@ -1180,7 +1180,7 @@ const Autopilot = {
         if (!di && !dj) continue;
         const ni = ki + di, nj = kj + dj; if (ni < 0 || nj < 0 || ni >= N || nj >= N) continue;
         const nk = nj * N + ni; if (cost[nk] === 0 || done[nk]) continue;
-        if (di && dj && (cost[kj * N + ni] === 0 || cost[nj * N + ki] === 0)) continue;   // не срезаем углы
+        if (di && dj && (cost[kj * N + ni] === 0 || cost[nj * N + ki] === 0)) continue;   // do not cut corners
         const ng = g[k] + cost[nk] * (di && dj ? 1.4142 : 1) + 0.02 * Math.hypot(cx + (ni - H) * cell - gx, cy + (nj - H) * cell - gy) / cell;
         if (ng < g[nk]) { g[nk] = ng; from[nk] = k; push(ng + hf(nk) * 1.05, nk); }
       }
@@ -1190,7 +1190,7 @@ const Autopilot = {
     st.path = path; st.reached = reached; st.partial = !reached && bestH > 3;
   },
 
-  /** Команды управления; st хранит состояние между вызовами. */
+  /** Control commands; st keeps state between calls. */
   control(rover, terrain, route, st, dt) {
     const cfg = rover.cfg, p = rover.pos, hdg = rover.heading, v = rover.speed;
     let best = st.idx || 0, bd = 1e18;
@@ -1202,7 +1202,7 @@ const Autopilot = {
     st.replan = (st.replan || 0) - dt;
     if (!st.path || st.replan <= 0) { this.plan(rover, terrain, route, st); st.replan = 1.5; st.pi = 0; }
     const path = st.path, wb = 2.4;
-    // ближайшая точка пути, затем точка на расстоянии упреждения
+    // nearest path point, then a point at the look-ahead distance
     let pi = st.pi || 0, pd = 1e18;
     for (let i = Math.max(0, pi - 2); i < Math.min(path.length, pi + 8); i++) { const d = (path[i][0] - p[0]) ** 2 + (path[i][1] - p[1]) ** 2; if (d < pd) { pd = d; pi = i; } }
     st.pi = pi;
@@ -1217,7 +1217,7 @@ const Autopilot = {
     const steer = clamp(delta / cfg.steerMax, -1, 1);
     const vmaxAp = cfg.vmax * 0.8;
     let vt = vmaxAp * clamp(1.15 - worst / st.limit, 0.15, 1) * clamp(1 - Math.abs(steer) * 0.55, 0.3, 1);
-    if (Math.abs(e) > 1.2) vt = Math.min(vt, vmaxAp * 0.3);             // разворот на месте не нужен: едем медленно
+    if (Math.abs(e) > 1.2) vt = Math.min(vt, vmaxAp * 0.3);             // no need to turn in place: drive slowly
     const noPath = path.length < 3 || (st.partial && ti >= path.length - 1);
     if (noPath) vt = 0;
     const err = vt - v;
@@ -1227,13 +1227,13 @@ const Autopilot = {
   },
 };
 
-// ======================================================================= режим «ускоренная поездка»
-/** Приближённая модель движения по маршруту без физики: для быстрого перелёта между участками.
-    Использует тот же профиль и тот же сценарий ограничений, что и планировщик сервера. */
+// ======================================================================= "fast trip" mode
+/** Approximate route motion model without physics: for quick transfers between sections.
+    Uses the same profile and the same constraint scenario as the server planner. */
 class Cruise {
   constructor(route, cfg, env, opts = {}) {
     this.R = route.radius; this.pts = route.points; this.cum = route.cum; this.total = route.cum[route.cum.length - 1];
-    this.elev = route.elevation;              // [[км, высота]]
+    this.elev = route.elevation;              // [[km, height]]
     this.cfg = cfg; this.env = env; this.prof = route.profile; this.body = route.body;
     this.s = opts.s || 0; this.t = opts.t || 0; this.battery = opts.battery != null ? opts.battery : cfg.batteryKwh;
     this.speedMult = 1 + 0.07 * ((cfg.up && cfg.up.motor) || 0);
@@ -1254,7 +1254,7 @@ class Cruise {
     const d = Math.max((e[hi][0] - e[lo][0]) * 1000, 1);
     return (e[hi][1] - e[lo][1]) / d;
   }
-  /** Шаг dt часов. Возвращает {moved, reason}. */
+  /** Step of dt hours. Returns {moved, reason}. */
   step(dtH) {
     const cfg = this.cfg, pos = this.posAt(this.s), env = this.env.at(this.t, pos.lat, pos.lon);
     const g = this.body === 'moon' ? 1.62 : 3.71;
@@ -1278,7 +1278,7 @@ class Cruise {
       this.t += dtD; this.moveH += dtD; this.reason = reason; this.env_ = env; this.gradeNow = gr;
       return { moved: v * dtD * 3600, reason, env };
     }
-    if (cfg.drone) {   // стоянка: зарядка/дозаправка днём
+    if (cfg.drone) {   // parked: charging/refuelling by day
       const sinD = Math.max(0, Math.sin(env.sunEl * D2R)), atmD = this.body === 'mars' ? Math.min(1, Math.exp(-Math.max(env.tau, 0.1) / Math.max(sinD, 0.12)) * 1.6) : 1;
       this.battery = clamp(this.battery + (cfg.chargeRate * sinD / (env.r * env.r) * atmD * (1 - 0.65 * this.dust) - cfg.aux * (this.body === 'mars' ? 1 : 0)) * dtH, 0, cfg.batteryKwh);
       this.t += dtH; this.waitH += dtH; this.reason = reason; this.env_ = env; this.gradeNow = gr; this.dust = clamp(this.dust + (env.storm || 0) * 1.2e-3 * dtH, 0, 1);
@@ -1291,7 +1291,7 @@ class Cruise {
     }
     const dt = dtH * 3600;
     this.s = Math.min(this.total, this.s + v * dt);
-    // солнечная генерация (в среднем по горизонтальной поверхности)
+    // solar generation (averaged over a horizontal surface)
     const sinEl = Math.max(0, Math.sin(env.sunEl * D2R));
     const atm = this.body === 'mars' ? Math.min(1, Math.exp(-Math.max(env.tau, 0.1) / Math.max(sinEl, 0.12)) * 1.6) : 1;
     const solar = cfg.solarKw * 1000 * sinEl / (env.r * env.r) * atm * (1 - 0.65 * this.dust);

@@ -1,5 +1,5 @@
 // Developed with assistance from Claude Code (Anthropic), an AI coding assistant. See SI_DISCLOSURE.md.
-/* Сетевой клиент симулятора: WebSocket к /ws/sim, интерполяция положений чужих игроков. */
+/* Simulator network client: WebSocket to /ws/sim, interpolation of other players' positions. */
 (function (root) {
 'use strict';
 const wrapAngle = a => Math.atan2(Math.sin(a), Math.cos(a));
@@ -8,7 +8,7 @@ class Net {
   constructor() {
     this.ws = null; this.id = null; this.name = ''; this.hue = 200; this.connected = false; this.online = 1;
     this.players = new Map();        // id -> { id, name, kind, hue, s0, s1 }
-    this.on = {};                     // обработчики: join, leave, chat, ping, give, status
+    this.on = {};                     // handlers: join, leave, chat, ping, give, status
     this.hello = null; this.retry = 0; this.closed = false; this._t = 0;
   }
   emit(ev, a, b) { if (this.on[ev]) this.on[ev](a, b); }
@@ -53,13 +53,13 @@ class Net {
     }
   }
   send(o) { if (this.connected && this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(o)); }
-  /** Состояние раз в ~100 мс; s: { lat, lon, alt, hd, p, r, v, sa, th, st, b, cr, kind } */
+  /** State about every ~100 ms; s: { lat, lon, alt, hd, p, r, v, sa, th, st, b, cr, kind } */
   state(s) { this.send(Object.assign({ t: 's' }, s)); }
   chat(text) { this.send({ t: 'chat', text }); }
   ping(lat, lon) { this.send({ t: 'ping', lat, lon }); }
   give(to, amt) { this.send({ t: 'give', to, amt }); }
   close() { this.closed = true; if (this.ws) this.ws.close(); }
-  /** Положение игрока в момент now с задержкой интерполяции 120 мс. Возвращает null, если данных нет или они устарели. */
+  /** Player position at time now with a 120 ms interpolation delay. Returns null if there is no data or it is stale. */
   sample(p, now) {
     const s1 = p.s1, s0 = p.s0; if (!s1 || s1.lat == null) return null;
     if (now - s1.t > 4000) return null;

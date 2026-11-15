@@ -1,5 +1,5 @@
 # Developed with assistance from Claude Code (Anthropic), an AI coding assistant. See SI_DISCLOSURE.md.
-"""Тексты, которые сервер отдаёт пользователю, на английском (по умолчанию) и русском."""
+"""Texts the server returns to the user, in English (default) and Russian."""
 from __future__ import annotations
 
 TEXT = {

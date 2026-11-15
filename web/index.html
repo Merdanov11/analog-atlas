@@ -24,7 +24,7 @@
   svg.i { width: 24px; height: 24px; fill: currentColor; flex: none; display: block; }
   #map { position: fixed; inset: 0; background: #000; }
 
-  /* ---- карточки и кнопки ---- */
+  /* ---- cards and buttons ---- */
   .card { background: var(--bg); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-radius: 16px; box-shadow: var(--shadow); pointer-events: auto; }
   .ib { width: 40px; height: 40px; border-radius: 50%; border: 0; background: transparent; color: var(--muted);
         display: grid; place-items: center; cursor: pointer; flex: none; padding: 0; }
@@ -37,7 +37,7 @@
   .pill.fill:hover { background: #5eead4; }
   .pill svg.i { width: 18px; height: 18px; }
 
-  /* ---- левая колонка ---- */
+  /* ---- left column ---- */
   #panel { position: fixed; top: 12px; left: 12px; width: 392px; max-height: calc(100% - 24px);
            display: flex; flex-direction: column; gap: 10px; overflow-y: auto; overflow-x: hidden;
            pointer-events: none; padding: 2px 4px 4px 2px; scrollbar-width: thin; z-index: 5; }
@@ -65,7 +65,7 @@
   #menu a:hover, #menu button:hover { background: var(--hover); }
   #menu svg.i { color: var(--muted); }
 
-  /* ---- карточка маршрута ---- */
+  /* ---- route card ---- */
   #dirCard { padding: 8px 12px 14px; flex: none; }
   .dtop { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
   #profSeg { display: flex; gap: 4px; flex: 1; }
@@ -92,7 +92,7 @@
   #status.err { color: var(--red); }
   #status:empty { display: none; }
 
-  /* ---- карточка места ---- */
+  /* ---- place card ---- */
   #card { padding: 0 0 8px; overflow: hidden; flex: none; position: relative; }
   #card .banner { height: 88px; background: linear-gradient(135deg, #1b2540, #34416a); }
   #card .banner.mars { background: linear-gradient(135deg, #7b3f26, #c1673c 55%, #e0a070); }
@@ -106,7 +106,7 @@
   #card .irow svg.i { color: var(--blue); width: 20px; height: 20px; margin-top: 1px; }
   #card .irow .t { min-width: 0; overflow-wrap: anywhere; }
 
-  /* ---- результат ---- */
+  /* ---- result ---- */
   #result { padding: 4px 0 12px; flex: none; }
   #variants { display: grid; }
   #variants button { display: flex; align-items: center; gap: 12px; text-align: left; background: transparent; border: 0;
@@ -141,7 +141,7 @@
   .lvl.mid { background: #3a2f10; color: #fcd34d; }
   .lvl.high { background: #3d1a1a; color: #ff8a80; }
 
-  /* ---- чипы сверху ---- */
+  /* ---- chips at the top ---- */
   #simWrap { position: fixed; inset: 0; z-index: 100; background: #000; }
   #simWrap iframe { width: 100%; height: 100%; border: 0; display: block; }
   #chips { position: fixed; top: 12px; left: 420px; display: flex; gap: 8px; z-index: 4; align-items: center; }
@@ -158,7 +158,7 @@
   #langSeg button { border: 0; background: transparent; padding: 0 14px; height: 36px; cursor: pointer; color: var(--muted); }
   #langSeg button.on { background: var(--blue-bg); color: var(--blue); font-weight: 500; }
 
-  /* ---- слои, управление, подвал ---- */
+  /* ---- layers, controls, footer ---- */
   #layerBtn { position: fixed; left: 12px; bottom: 34px; width: 66px; height: 66px; z-index: 4; border-radius: 10px;
               border: 2px solid #2dd4bf66; box-shadow: var(--shadow); cursor: pointer; padding: 0; overflow: hidden;
               color: #fff; background: var(--tile); font-size: 11px; font-weight: 500; display: flex;
@@ -200,7 +200,7 @@
   #credits a { color: #94a3c0; }
   #cursor { font-variant-numeric: tabular-nums; }
 
-  /* ---- окно «Источники» ---- */
+  /* ---- "Sources" window ---- */
   dialog { background: var(--solid); color: var(--text); border: 0; border-radius: 14px; box-shadow: 0 12px 48px #0006;
            max-width: 760px; width: calc(100% - 32px); max-height: 88vh; padding: 0; }
   dialog::backdrop { background: #0009; }
@@ -391,7 +391,7 @@
 <script>
 const $ = id => document.getElementById(id);
 
-// ---------------------------------------------------------------- значки (Material Icons)
+// ---------------------------------------------------------------- icons (Material Icons)
 const ICON = {
   globe: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z',
   menu: 'M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z',
@@ -417,7 +417,7 @@ const ICON = {
 const ico = n => `<svg class="i" viewBox="0 0 24 24"><path d="${ICON[n]}"/></svg>`;
 document.querySelectorAll('[data-ico]').forEach(el => el.insertAdjacentHTML('afterbegin', ico(el.dataset.ico)));
 
-// ---------------------------------------------------------------- языки
+// ---------------------------------------------------------------- languages
 const I18N = {
   en: {
     atlas: 'Earth analogs', atlasBtn: '🌍 Earth analogs of this site',
@@ -507,7 +507,7 @@ const I18N = {
   },
 };
 
-// Список наборов данных для окна «Источники»: что взято, откуда и для чего.
+// List of datasets for the "Sources" window: what was taken, from where and for what.
 const DATASETS = [
   { org: 'NASA', link: 'https://astrogeology.usgs.gov/', file: 'Mars_MGS_MOLA_DEM_mosaic_global_463m.tif',
     en: ['Mars elevation model (MGS MOLA, 463 m per pixel)',
@@ -593,7 +593,7 @@ function applyLang() {
   renderData(); syncLayerBtn(); syncViewBtn(); showPts(); profCap(); if (viewer) buildOverlays();
 }
 
-// ---------------------------------------------------------------- карта
+// ---------------------------------------------------------------- map
 const TREK = 'https://trek.nasa.gov/tiles';
 const LAYERS = {
   mars: {
@@ -605,7 +605,7 @@ const LAYERS = {
     relief: { id: 'Moon/EQ/LRO_LOLA_ClrShade_Global_128ppd_v04', ext: 'png', max: 5 },
   },
 };
-// Научные слои Mars Trek (NASA/JPL, данные приборов THEMIS, TES, MOLA): накладываются на основу с регулируемой прозрачностью.
+// Mars Trek science layers (NASA/JPL, THEMIS, TES, MOLA instrument data): overlaid on the base with adjustable opacity.
 const OVERLAYS = {
   mars: [
     { k: 'themis_day', id: 'Mars/EQ/THEMIS_DayIR_ControlledMosaics_100m_v2_oct2018', ext: 'png', max: 9, kind: ['thermal', 'тепловой'], en: 'Thermal infrared, day', ru: 'Тепловой ИК, день', src: 'Mars Odyssey THEMIS' },
@@ -619,7 +619,7 @@ const OVERLAYS = {
   moon: [],
 };
 let ovLayer = null;
-// Сервер считает оба тела сферами, поэтому и глобус рисуем сферой того же радиуса.
+// The server treats both bodies as spheres, so the globe is drawn as a sphere of the same radius.
 const RADIUS = { mars: 3396190, moon: 1737400 };
 const COLORS = { a: '#2dd4bf', b: '#ff7a59', route: '#ffb020', alt: '#7c8db0' };
 const STOP_COLORS = { rest: '#5aa9ff', night: '#b08cff', temp: '#ffd24a', charge: '#38d39f' };
@@ -646,7 +646,7 @@ function createViewer() {
     skyAtmosphere: false, animation: false, timeline: false, baseLayerPicker: false, geocoder: false,
     homeButton: false, sceneModePicker: false, navigationHelpButton: false, infoBox: false,
     selectionIndicator: false, fullscreenButton: false, creditContainer: $('credits'),
-    // Рисуем кадр только при изменениях, а не 60 раз в секунду: меньше нагрузка на ноутбук.
+    // Render a frame only on changes, not 60 times a second: less load on the laptop.
     requestRenderMode: true, maximumRenderTimeChange: Infinity,
     sceneMode: state.view === '2d' ? Cesium.SceneMode.SCENE2D : Cesium.SceneMode.SCENE3D,
   });
@@ -674,7 +674,7 @@ function createViewer() {
     if (id && id.altMode) { $('mode').value = id.altMode; render(); return; }
     const obj = id && (id.place || id.site);
     if (state.dir) {
-      // В режиме маршрута щелчок задаёт точку: ту, где стоит курсор ввода, иначе первую пустую.
+      // In route mode a click sets a point: the one where the input cursor is, otherwise the first empty one.
       const p = obj ? { lat: obj.lat, lng: obj.lon, name: nameOf(obj) } : pickLL(e.position);
       if (!p) return;
       const k = state.focus || (!state.a ? 'a' : !state.b ? 'b' : null); if (!k) return;
@@ -767,7 +767,7 @@ function setPin(lat, lon) {
   viewer.scene.requestRender();
 }
 
-// ---------------------------------------------------------------- названия мест и посадки
+// ---------------------------------------------------------------- place names and landings
 async function loadPlaces() {
   const v = viewer, body = state.body;
   state.places = []; state.sites = []; state.live = [];
@@ -792,8 +792,8 @@ function buildPlaces() {
   if ($('names').checked) {
     placeLabels = prim.add(new Cesium.LabelCollection());
     state.places.forEach((p, i) => {
-      // Крупный объект виден издалека, мелкий только вблизи; совсем вплотную подпись региона прячем.
-      // Список отсортирован по размеру: с расстояния «весь шар» видны только 40 самых крупных.
+      // A large feature is visible from afar, a small one only up close; right up close we hide the region label.
+      // The list is sorted by size: from a "whole globe" distance only the 40 largest are visible.
       let far = Math.min(Math.max(p.d * 1000 * 7, 40000), R * 9);
       if (i >= 40) far = Math.min(far, R * 1.5);
       const near = p.d > 300 ? p.d * 1000 * 0.35 : 0;
@@ -821,7 +821,7 @@ function buildPlaces() {
         distanceDisplayCondition: new DDC(0, R * 2.2), id: { site: s } });
     }
   }
-  // Живые данные NASA: настоящие положения марсоходов и их пройденный путь.
+  // Live NASA data: real rover positions and the distance they have driven.
   if (state.live.length) {
     liveColl = prim.add(new Cesium.PointPrimitiveCollection()); liveLabels = prim.add(new Cesium.LabelCollection());
     for (const a of state.live) {
@@ -843,17 +843,17 @@ function showCard(o) {
   $('cName').textContent = nameOf(o);
   $('cBanner').className = 'banner ' + state.body;
   const rows = [];
-  if (o.n) {   // объект справочника IAU
+  if (o.n) {   // IAU gazetteer object
     $('cMeta').textContent = `${o.t} · ${T().group[o.g] || T().group.other}`;
     if (o.o) rows.push(irow('text', o.o));
     if (o.d > 0) rows.push(irow('size', `${T().diameter}: ${num(o.d)} ${T().km}`));
-  } else if (o.live) {     // настоящий марсоход: живые данные NASA
+  } else if (o.live) {     // real rover: live NASA data
     $('cMeta').textContent = `${T().kind[o.kind]} · ${o.agency} · LIVE · ${T().sol} ${o.sol}`;
     rows.push(irow('info', `<b style="color:#ff7a59">LIVE</b> · ${T().asOf} ${o.as_of.replace('T', ' ').replace('Z', ' UTC')}`));
     if (o.total_km) rows.push(irow('size', `${num(o.total_km)} ${T().km} ${T().drivenTotal}`));
     rows.push(irow('terrain', `${T().tilt}: ${o.pitch_deg}° / ${o.roll_deg}° · ${T().heading}: ${Math.round(o.heading_deg)}°`));
     rows.push(irow('link', `<a href="${o.source_url}" target="_blank" rel="noopener">${o.source}</a>`));
-  } else if (o.kind) {     // место посадки
+  } else if (o.kind) {     // landing site
     $('cMeta').textContent = `${T().kind[o.kind]} · ${o.agency} · ${T().landed} ${o.year}`;
   } else {
     $('cMeta').textContent = T().pinSub;
@@ -873,7 +873,7 @@ function showCard(o) {
 function closeCard() { state.sel = null; $('card').hidden = true; if (viewer) setPin(null); }
 $('cClose').addEventListener('click', () => { closeCard(); $('search').value = ''; $('clearSearch').hidden = true; });
 
-// ---------------------------------------------------------------- режим маршрута
+// ---------------------------------------------------------------- route mode
 function openDir() {
   state.dir = true; state.focus = null;
   closeCard();
@@ -916,7 +916,7 @@ function syncHint() {
   $('dirHint').textContent = state.a && state.b ? '' : !state.a && !state.b ? T().hint : !state.a ? T().hintA : T().hintB;
 }
 
-// ---------------------------------------------------------------- поиск (общий для трёх полей)
+// ---------------------------------------------------------------- search (shared by three fields)
 function attachSearch(input, list, onPick) {
   let items = [];
   const fill = () => {
@@ -935,7 +935,7 @@ function attachSearch(input, list, onPick) {
     }
     list.innerHTML = items.map((o, i) =>
       `<li data-i="${i}">${ico('pin')}<b>${nameOf(o)}</b><small>${o.n ? o.t : o.kind ? T().kind[o.kind] : T().pinSub}</small></li>`).join('');
-    // Список «плавает» над колонкой (fixed), иначе его обрежет её прокрутка.
+    // The list "floats" above the column (fixed), otherwise its scrolling would clip it.
     const r = input.closest('.sfield').getBoundingClientRect(), wide = list.id === 'found';
     list.style.left = (wide ? r.left - 46 : r.left) + 'px';
     list.style.top = (r.bottom + 6) + 'px';
@@ -973,7 +973,7 @@ document.addEventListener('click', e => {
   if (!e.target.closest('#layerPop, #layerBtn')) $('layerPop').style.display = 'none';
 });
 
-// ---------------------------------------------------------------- управление
+// ---------------------------------------------------------------- controls
 function seg(id, key, after) {
   $(id).addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b || state[key] === b.dataset.v) return;
@@ -994,7 +994,7 @@ $('langSeg').addEventListener('click', async e => {
   refresh(false);
 });
 
-// Плитка «Слои» показывает тот слой, на который можно переключиться (как в Google Maps).
+// The "Layers" tile shows the layer you can switch to (as in Google Maps).
 function syncLayerBtn() {
   const other = state.layer === 'photo' ? 'relief' : 'photo';
   $('layerBtn').style.setProperty('--tile', other === 'photo'
@@ -1075,13 +1075,13 @@ $('aboutBtn').addEventListener('click', () => { $('menu').style.display = 'none'
 $('srcBtn').addEventListener('click', () => $('about').showModal());
 $('aboutClose').addEventListener('click', () => $('about').close());
 
-// ---------------------------------------------------------------- маршрут
+// ---------------------------------------------------------------- route
 async function refresh(fit) {
   showPts();
   if (!state.a || !state.b) return;
   const id = ++state.req;
   setStatus(T().computing);
-  // Считаем сразу все типы маршрута, чтобы их можно было сравнить.
+  // We compute all route types at once so they can be compared.
   const modes = [...$('mode').options].map(o => o.value);
   const one = async mode => {
     const q = new URLSearchParams({ body: state.body, lat1: state.a.lat, lon1: state.a.lng,
@@ -1122,7 +1122,7 @@ function addLine(d, main, mode) {
   lines.push(e);
 }
 
-/** Два маршрута считаются одним, если совпадают по длине, времени и форме линии (отклонение меньше ~150 м). */
+/** Two routes count as one if length, time and line shape match (deviation under ~150 m). */
 function sameRoute(a, b) {
   if (Math.abs(a.distance_m - b.distance_m) > Math.max(30, 0.01 * a.distance_m)) return false;
   const ta = a.plan ? a.plan.total_h : a.time_s / 3600, tb = b.plan ? b.plan.total_h : b.time_s / 3600;
@@ -1136,7 +1136,7 @@ function sameRoute(a, b) {
   }
   return worst < Math.max(150, 0.02 * a.distance_m);
 }
-/** Варианты маршрута без повторов: [{ modes: ['fast', 'eco'], d }]. */
+/** Route variants without repeats: [{ modes: ['fast', 'eco'], d }]. */
 function routeGroups() {
   const groups = [];
   for (const [m, d] of Object.entries(state.results)) {
@@ -1154,9 +1154,9 @@ function render() {
   if (!cur || cur.error) { $('result').hidden = true; setStatus(cur ? cur.error : '', true); return; }
   const groups = routeGroups();
   const curGroup = groups.find(g => g.modes.includes(mode));
-  for (const g of groups) if (g !== curGroup) addLine(g.d, false, g.modes[0]);      // одинаковые маршруты рисуем один раз
+  for (const g of groups) if (g !== curGroup) addLine(g.d, false, g.modes[0]);      // identical routes are drawn only once
   addLine(cur, true);
-  // Маркеры A и B рисуем поверх линий.
+  // Markers A and B are drawn on top of the lines.
   for (const k of ['a', 'b']) if (mk[k]) { viewer.entities.remove(mk[k]); mk[k] = null; placeMarker(k); }
   const txt = Object.fromEntries([...$('mode').options].map(o => [o.value, o.text]));
   const okCount = groups.reduce((n, g) => n + g.modes.length, 0);
@@ -1168,7 +1168,7 @@ function render() {
   }).join('');
   draw(cur);
 }
-// Симулятор поездки: маршрут передаётся через localStorage, игра открывается поверх карты.
+// Trip simulator: the route is passed via localStorage, the game opens over the map.
 $('simBtn').addEventListener('click', () => {
   const mode = $('mode').value, d = state.results && state.results[mode]; if (!d || d.error) return;
   try {
@@ -1225,7 +1225,7 @@ function drawPlan(p) {
     (p.stops_total > 24 ? T().someStops(p.stops_total) : '');
   $('risks').innerHTML = p.risks.map(r =>
     `<li><b>${r.title}</b><span class="lvl ${r.level}">${T().lvl[r.level]}</span><br>${r.text}</li>`).join('');
-  // На карте не больше 24 точек остановок, иначе они закрывают линию маршрута.
+  // At most 24 stop points on the map, otherwise they cover the route line.
   const step = Math.ceil(p.stops.length / 24) || 1;
   for (const s of p.stops.filter((_, i) => i % step === 0)) {
     stopEnts.push(viewer.entities.add({
@@ -1249,7 +1249,7 @@ function chart(id, el, unit, color) {
     `<text x="2" y="${H - 2}" fill="#94a3c0" font-size="9">${num(Math.round(y0))}${unit}</text>`;
 }
 
-// Способ передвижения: ряд значков как «пешком / на машине» в Google Maps.
+// Travel mode: a row of icons like "on foot / by car" in Google Maps.
 function profCap() {
   const p = profiles[$('profile').value];
   $('profCap').textContent = p ? `${p.title} · ${T().upTo} ${p.max_slope}°` : '';
@@ -1280,7 +1280,7 @@ async function loadMeta() {
   } catch { setStatus(T().noRoutes, true); }
 }
 
-// Игроки, которые сейчас в симуляторе: отметки на карте, обновляются каждые 4 секунды.
+// Players currently in the simulator: markers on the map, refreshed every 4 seconds.
 let playerEnts = new Map();
 async function pollPlayers() {
   try {
@@ -1301,7 +1301,7 @@ async function pollPlayers() {
 }
 setInterval(() => { if (!document.hidden) pollPlayers(); }, 4000);
 
-// ---------------------------------------------------------------- память состояния: адрес страницы (#...) и localStorage
+// ---------------------------------------------------------------- state memory: page address (#...) and localStorage
 let pendingRestore = {};
 function mapSnapshot() {
   const o = { b: state.body, l: state.layer, o: state.overlay || '', v: state.view, p: $('profile').value || '', m: $('mode').value || '' };

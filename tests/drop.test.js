@@ -1,5 +1,5 @@
 // Developed with assistance from Claude Code (Anthropic), an AI coding assistant. See SI_DISCLOSURE.md.
-// Падения и прыжки: вездеход не должен оказываться под грунтом (node tests/drop.test.js)
+// Drops and jumps: the rover must never end up below the ground (node tests/drop.test.js)
 const C = require('../web/sim/core.js');
 let fails = 0; const ok = (c, m, e = '') => { if (!c) fails++; console.log((c ? 'PASS ' : 'FAIL ') + m + (e ? '  [' + e + ']' : '')); };
 function terr(fn, body) {
@@ -14,20 +14,20 @@ function depth(r, t) {
   return d;
 }
 for (const body of ['moon', 'mars']) for (const dt of [0.01, 0.02]) {
-  // 1. падение с высоты 6 м на крутой склон кратера (R=40, глубина 20 м)
+  // 1. a 6 m drop onto a steep crater slope (R=40, depth 20 m)
   const crater = (x, y) => { const r = Math.hypot(x, y) / 40; return r < 1 ? -20 * (1 - r * r) + 2 * r ** 4 : 2 / r ** 3; };
   let t = terr(crater, body), r = new C.Rover(C.applyUpgrades(C.VEHICLES.rover_crew, {}), t); r.place(25, 0, 1.0); r.pos[2] += 6;
   let worst = 0; for (let i = 0; i < 1500; i++) { r.step(dt, env); worst = Math.max(worst, depth(r, t)); if (!Number.isFinite(r.pos[2])) break; }
-  ok(Number.isFinite(r.pos[2]) && worst < 0.3 && r.pos[2] > t.height(r.pos[0], r.pos[1]) - 0.3, `${body} dt=${dt}: падение 6 м на стенку кратера`, `max под грунтом ${worst.toFixed(2)} м, fixes=${r.stats.fixes || 0}`);
-  // 2. заезд в кратер на полном газу и выезд с другой стороны
+  ok(Number.isFinite(r.pos[2]) && worst < 0.3 && r.pos[2] > t.height(r.pos[0], r.pos[1]) - 0.3, `${body} dt=${dt}: 6 m drop onto a crater wall`, `max below ground ${worst.toFixed(2)} m, fixes=${r.stats.fixes || 0}`);
+  // 2. driving into a crater at full throttle and out the other side
   t = terr((x, y) => { const rr = Math.hypot(x, y - 120) / 30; return rr < 1 ? -12 * (1 - rr * rr) + 1.5 * rr ** 4 : 1.5 / rr ** 3; }, body);
   r = new C.Rover(C.applyUpgrades(C.VEHICLES.rover_crew, { motor: 4, tires: 4 }), t, { stability: false }); r.place(0, -60, 0);
   worst = 0; let bad = false;
   for (let i = 0; i < 6000; i++) { Object.assign(r.input, { throttle: 1, steer: 0 }); r.step(dt, env); worst = Math.max(worst, depth(r, t)); if (!Number.isFinite(r.pos[2])) { bad = true; break; } }
-  ok(!bad && worst < 0.3, `${body} dt=${dt}: заезд в кратер на полном газу`, `max под грунтом ${worst.toFixed(2)} м, fixes=${r.stats.fixes || 0}, y=${r.pos[1].toFixed(0)}`);
-  // 3. боком по склону 25 градусов (опрокидывание допускается, провал — нет)
+  ok(!bad && worst < 0.3, `${body} dt=${dt}: driving into a crater at full throttle`, `max below ground ${worst.toFixed(2)} m, fixes=${r.stats.fixes || 0}, y=${r.pos[1].toFixed(0)}`);
+  // 3. sideways on a 25 degree slope (rolling over is allowed, falling through is not)
   t = terr((x, y) => Math.tan(25 * Math.PI / 180) * x, body); r = new C.Rover(C.applyUpgrades(C.VEHICLES.rover_crew, {}), t, { stability: false }); r.place(0, 0, 0);
   worst = 0; for (let i = 0; i < 3000; i++) { Object.assign(r.input, { throttle: 0.7, steer: 0.5 }); r.step(dt, env); worst = Math.max(worst, depth(r, t)); }
-  ok(Number.isFinite(r.pos[2]) && worst < 0.3, `${body} dt=${dt}: крутой склон боком, возможное опрокидывание`, `max под грунтом ${worst.toFixed(2)} м`);
+  ok(Number.isFinite(r.pos[2]) && worst < 0.3, `${body} dt=${dt}: steep slope sideways, rollover possible`, `max below ground ${worst.toFixed(2)} m`);
 }
-console.log(fails ? `\n${fails} ПРОВАЛОВ` : '\nВсе проверки пройдены'); process.exit(fails ? 1 : 0);
+console.log(fails ? `\n${fails} FAILURES` : '\nAll checks passed'); process.exit(fails ? 1 : 0);

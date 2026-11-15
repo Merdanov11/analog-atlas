@@ -1,8 +1,8 @@
 # Far from Earth: architecture overview (companion project)
 
-*This is the map and simulator part of the project. It is the map and simulator part of the project; the Earth-analog tool is described in the main README.*
+*This is the map and simulator part of the project; the Earth-analog tool is described in the main README.*
 
-Code comments are mostly in Russian; this page lists the modules in English.
+Code comments are in English. The RU language toggle keeps Russian UI strings in `server/i18n.py`, `server/sites.py` and `web/*.html`.
 
 * `server/app.py`: FastAPI endpoints (`/api/route`, `/api/places`, `/api/sites`, `/api/elevation`, `/api/sun`, `/api/sim/patch`, `/api/assets`, `/api/players`, `/ws/sim`), serves `web/`.
 * `server/prep.py`, `prep_names.py`: routing grids from MOLA and LOLA GeoTIFFs; IAU place names.

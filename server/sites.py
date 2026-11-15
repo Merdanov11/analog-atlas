@@ -1,10 +1,10 @@
 # Developed with assistance from Claude Code (Anthropic), an AI coding assistant. See SI_DISCLOSURE.md.
-"""Места посадок космических аппаратов (успешные мягкие посадки и одна первая жёсткая).
+"""Landing sites of spacecraft (successful soft landings and one early hard landing).
 
-Координаты из открытых отчётов миссий (каталог NASA NSSDCA и публикации агентств),
-широта и восточная долгота в градусах. Пять лунных мест сверены со справочником IAU
-(объекты типа Statio), расхождение не больше 0,02°.
-kind: crew = пилотируемая, rover = планетоход, lander = посадочная станция.
+Coordinates come from open mission reports (NASA NSSDCA catalogue and agency publications),
+latitude and east longitude in degrees. Five lunar sites were checked against the IAU gazetteer
+(features of type Statio), the discrepancy is at most 0.02°.
+kind: crew = crewed, rover = rover, lander = lander.
 """
 
 SITES = {

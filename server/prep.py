@@ -1,15 +1,15 @@
 # Developed with assistance from Claude Code (Anthropic), an AI coding assistant. See SI_DISCLOSURE.md.
-"""Подготовка сеток для маршрутизации из исходных карт высот (GeoTIFF).
+"""Preparation of routing grids from the source elevation maps (GeoTIFF).
 
-Запуск:  .venv/bin/python -I server/prep.py mars
+Run:  .venv/bin/python -I server/prep.py mars
          .venv/bin/python -I server/prep.py moon
 
-Исходный файл читается полосами (в память целиком не грузится). Для каждой
-ячейки базовой сетки сохраняются:
-  * средняя высота (int16, метры);
-  * средний уклон, посчитанный по ИСХОДНОМУ разрешению (uint8, шаг 0.5 градуса).
-Уклон считается до уменьшения, иначе стенки небольших кратеров сгладились бы
-и исчезли. Затем строится пирамида уровней: каждый следующий вдвое грубее.
+The source file is read in strips (it is not loaded into memory as a whole). For every
+cell of the base grid the following is stored:
+  * mean elevation (int16, metres);
+  * mean slope computed at the SOURCE resolution (uint8, step 0.5 degrees).
+The slope is computed before downsampling, otherwise the walls of small craters would be smoothed
+away. Then a pyramid of levels is built: every next level is twice as coarse.
 """
 from __future__ import annotations
 
@@ -36,9 +36,9 @@ BODIES = {
         radius=1737400.0, gravity=1.62, factor=4, scale=None,
     ),
 }
-LEVELS = 7          # уровень 0 = базовая сетка, уровень 6 = в 64 раза грубее
-STRIP = 256         # сколько строк исходника читать за раз
-SLOPE_UNIT = 0.5    # градусов на единицу uint8
+LEVELS = 7          # level 0 = base grid, level 6 = 64 times coarser
+STRIP = 256         # how many source rows to read at a time
+SLOPE_UNIT = 0.5    # degrees per uint8 unit
 
 
 def build(body: str) -> None:
@@ -51,7 +51,7 @@ def build(body: str) -> None:
     with rasterio.open(DATA / cfg["src"]) as ds:
         W, H = ds.width, ds.height
         if W != 2 * H:
-            raise SystemExit(f"ожидалась глобальная карта 2:1, получено {W}x{H}")
+            raise SystemExit(f"expected a 2:1 global map, got {W}x{H}")
         scale = cfg["scale"] if cfg["scale"] is not None else (ds.scales[0] or 1.0)
         offset = ds.offsets[0] or 0.0
         print(f"{body}: {W}x{H}, dtype={ds.dtypes[0]}, scale={scale}, "
@@ -66,15 +66,15 @@ def build(body: str) -> None:
 
         for r0 in range(0, H, STRIP):
             r1 = min(r0 + STRIP, H)
-            a, b = max(r0 - 1, 0), min(r1 + 1, H)     # +1 строка для градиента
+            a, b = max(r0 - 1, 0), min(r1 + 1, H)     # +1 row for the gradient
             z = ds.read(1, window=Window(0, a, W, b - a)).astype(np.float32)
             z = z * np.float32(scale) + np.float32(offset)
             lat = 90.0 - (np.arange(a, b) + 0.5) * res_deg
             cosl = np.maximum(np.cos(np.radians(lat)), math.cos(math.radians(89.5)))
             gy = np.gradient(z, axis=0) / np.float32(res_m)
-            # Уклон восток-запад. У полюсов ячейки сужаются до метров, и шум данных
-            # выглядел бы как крутые склоны, поэтому разность берём через k ячеек,
-            # чтобы база измерения оставалась примерно равной res_m.
+            # East-west slope. Near the poles cells narrow to metres, and data noise
+            # would look like steep slopes, so the difference is taken across k cells
+            # to keep the measurement baseline roughly equal to res_m.
             kk = np.minimum(np.ceil(1.0 / cosl).astype(int), W // 8)
             gx = np.empty_like(z)
             for kv in np.unique(kk):
@@ -97,9 +97,9 @@ def build(body: str) -> None:
         elev.flush()
         slope.flush()
 
-    print(f"  высоты: от {zmin:.0f} до {zmax:.0f} м")
+    print(f"  heights: from {zmin:.0f} to {zmax:.0f} m")
 
-    # Пирамида: каждый уровень = среднее по блокам 2x2 предыдущего.
+    # Pyramid: every level = mean over 2x2 blocks of the previous one.
     pe, ps = elev, slope
     for lvl in range(1, LEVELS):
         h, w = pe.shape[0] // 2, pe.shape[1] // 2
@@ -115,17 +115,17 @@ def build(body: str) -> None:
         ne.flush()
         ns.flush()
         pe, ps = ne, ns
-        print(f"  уровень {lvl}: {w}x{h}")
+        print(f"  level {lvl}: {w}x{h}")
 
     meta = dict(body=body, radius=cfg["radius"], gravity=cfg["gravity"], levels=LEVELS,
                 width=bw, height=bh, slope_unit=SLOPE_UNIT,
                 cell_m=cfg["radius"] * math.pi / bh, source=cfg["src"],
                 elev_min=zmin, elev_max=zmax)
     (out / "meta.json").write_text(json.dumps(meta, indent=2))
-    print(f"готово за {time.time() - t0:.0f} c: {out}")
+    print(f"done in {time.time() - t0:.0f} c: {out}")
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 2 or sys.argv[1] not in BODIES:
-        raise SystemExit("использование: prep.py mars|moon")
+        raise SystemExit("usage: prep.py mars|moon")
     build(sys.argv[1])

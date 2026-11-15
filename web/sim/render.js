@@ -1,6 +1,6 @@
 // Developed with assistance from Claude Code (Anthropic), an AI coding assistant. See SI_DISCLOSURE.md.
-/* Графика симулятора (Three.js r128): небо, рельеф кольцами разной подробности, камни, модель вездехода,
-   пыль, маяки и образцы. Мир z-вверх (x восток, y север), как и в core.js. */
+/* Simulator graphics (Three.js r128): sky, terrain in rings of varying detail, rocks, rover model,
+   dust, beacons and samples. The world is z-up (x east, y north), as in core.js. */
 (function (root) {
 'use strict';
 const C = root.Core, T = root.THREE;
@@ -91,12 +91,12 @@ class Ring {
     const H = this.H, pos = this.pos, nor = this.nor, col = this.col, uv = this.uv;
     for (let j = 0; j < n1; j++) for (let i = 0; i < n1; i++) {
       const x = x0 + i * s, y = y0 + j * s, k = j * n1 + i;
-      // Крупные кольца усредняют высоту по четырём точкам: иначе мелкий рельеф «мерцает» решёткой.
+      // Large rings average the height over four points: otherwise small terrain "flickers" as a lattice.
       let h;
       if (d.detail) h = terrain.heightBase(x, y);
       else { const q = s * 0.3; h = (terrain.grid(x - q, y - q) + terrain.grid(x + q, y - q) + terrain.grid(x - q, y + q) + terrain.grid(x + q, y + q)) * 0.25; }
       h -= d.bias;
-      if (i === 0 || j === 0 || i === n || j === n) h -= 0.5 * s + 0.4;       // «юбка» скрывает швы между кольцами
+      if (i === 0 || j === 0 || i === n || j === n) h -= 0.5 * s + 0.4;       // the "skirt" hides seams between rings
       H[k] = h; pos[k * 3] = x; pos[k * 3 + 1] = y; pos[k * 3 + 2] = h;
       uv[k * 2] = x / 13; uv[k * 2 + 1] = y / 13;
     }
@@ -105,9 +105,9 @@ class Ring {
       const dx = (H[il] - H[ir]) / ((ir - il) * s || 1), dy = (H[jd] - H[ju]) / (((ju - jd) / n1) * s || 1);
       const inv = 1 / Math.sqrt(dx * dx + dy * dy + 1);
       nor[k * 3] = dx * inv; nor[k * 3 + 1] = dy * inv; nor[k * 3 + 2] = inv;
-      // цвет: тёмные ложбины, светлые свежие склоны, пятна другого грунта
+      // colour: dark hollows, light fresh slopes, patches of different soil
       const x = pos[k * 3], y = pos[k * 3 + 1], steep = 1 - inv;
-      // Длина волны шума растёт вместе с шагом сетки кольца, иначе вдали получается «шахматка».
+      // The noise wavelength grows with the ring grid step, otherwise a "checkerboard" appears in the distance.
       const pw = Math.max(55, s * 7), fw = Math.max(9, s * 2.6);
       const patch = 0.5 + 0.5 * C.vnoise((x + terrain.gx0) / pw, (y + terrain.gy0) / pw, 8);
       const fine = C.vnoise((x + terrain.gx0) / fw, (y + terrain.gy0) / fw, 9);
@@ -119,7 +119,7 @@ class Ring {
   }
 }
 
-// ----------------------------------------------------------------------------- частицы
+// ----------------------------------------------------------------------------- particles
 class Dust {
   constructor(scene, max, size, color) {
     this.max = max; this.i = 0;
@@ -153,7 +153,7 @@ class Dust {
   }
 }
 
-// ----------------------------------------------------------------------------- сцена
+// ----------------------------------------------------------------------------- scene
 class Scene3D {
   constructor(canvas, body) {
     this.body = body; this.canvas = canvas;
@@ -212,7 +212,7 @@ class Scene3D {
         }`,
     });
     this.sky = new T.Mesh(geo, this.skyMat); this.sky.frustumCulled = false; this.sky.renderOrder = -10; this.scene.add(this.sky);
-    // звёзды
+    // stars
     const N = 2800, sp = new Float32Array(N * 3), sc = new Float32Array(N * 3);
     for (let i = 0; i < N; i++) {
       const u = Math.random() * 2 - 1, a = Math.random() * 6.2832, r = Math.sqrt(1 - u * u), k = 0.55 + Math.random() * 0.45;
@@ -222,7 +222,7 @@ class Scene3D {
     const sg = new T.BufferGeometry(); sg.setAttribute('position', new T.BufferAttribute(sp, 3)); sg.setAttribute('color', new T.BufferAttribute(sc, 3));
     this.stars = new T.Points(sg, new T.PointsMaterial({ size: 1.9, sizeAttenuation: false, vertexColors: true, transparent: true, opacity: 1, fog: false, depthWrite: false }));
     this.stars.frustumCulled = false; this.stars.renderOrder = -9; this.scene.add(this.stars);
-    // Солнце
+    // Sun
     const ang = this.mars ? 0.35 : 0.53;
     this.sunDisc = new T.Mesh(new T.CircleGeometry(40000 * Math.tan(ang * D2R / 2), 24), new T.MeshBasicMaterial({ color: 0xffffff, fog: false, depthWrite: false }));
     this.sunGlow = new T.Sprite(new T.SpriteMaterial({ map: glowTexture('rgba(255,244,220,.9)', 'rgba(255,230,190,0)'), blending: T.AdditiveBlending, fog: false, depthWrite: false, transparent: true }));
@@ -253,15 +253,15 @@ class Scene3D {
     t.forEachRock(x - R, x + R, y - R, y + R, (rx, ry, r) => {
       if (n >= this.maxRocks || (rx - x) ** 2 + (ry - y) ** 2 > R * R) return;
       const seed = (Math.floor(rx * 13) ^ Math.floor(ry * 7)) >>> 0, a = (seed & 255) / 255 * 6.28, b = ((seed >> 8) & 255) / 255;
-      e.set(0, 0, a); q.setFromEuler(e); s.set(r, r, 0.5 * r);          // форма и размер те же, что у камня в физике
+      e.set(0, 0, a); q.setFromEuler(e); s.set(r, r, 0.5 * r);          // same shape and size as the rock in the physics
       p.set(rx, ry, t.heightBase(rx, ry));
       m.compose(p, q, s); this.rocks.setMatrixAt(n++, m);
     });
     this.rocks.count = n; this.rocks.instanceMatrix.needsUpdate = true;
   }
 
-  // ---------------------------------------------------------------- модели техники
-  /** Собирает трёхмерную модель техники. Возвращает { group, wheelMeshes, headL, rotors, nozzles, nozzlePts }. */
+  // ---------------------------------------------------------------- vehicle models
+  /** Builds a 3D vehicle model. Returns { group, wheelMeshes, headL, rotors, nozzles, nozzlePts }. */
   makeModel(cfg, remote) {
     const g = new T.Group(), out = { group: g, wheelMeshes: [], headL: [], rotors: [], nozzles: [], nozzlePts: [] };
     const dark = new T.MeshStandardMaterial({ color: 0x3a4150, roughness: 0.6, metalness: 0.5 });
@@ -278,26 +278,26 @@ class Scene3D {
       const [hx, hy, hz, ho] = cfg.hull, crew = cfg.crewed;
       box(hx * 2, hy * 2, hz * 0.8, dark, 0, 0, ho - 0.1);
       box(hx * 1.9, hy * 1.9, 0.06, light, 0, 0, ho + hz * 0.35);
-      // солнечная панель
+      // solar panel
       box(hx * 1.5, hy * 1.7, 0.05, panel, crew ? -hx * 0.15 : -hx * 0.35, 0, ho + hz * 0.35 + 0.08);
       for (let i = -3; i <= 3; i++) box(0.015, hy * 1.7, 0.01, rimMat, (crew ? -hx * 0.15 : -hx * 0.35) + i * hx * 0.2, 0, ho + hz * 0.35 + 0.115);
       if (crew) {
-        box(0.9, 1.5, 0.12, light, 0.55, 0, ho + 0.15); // сиденья
+        box(0.9, 1.5, 0.12, light, 0.55, 0, ho + 0.15); // seats
         box(0.1, 1.5, 0.5, light, 0.1, 0, ho + 0.4);
         const dish = new T.Mesh(new T.ConeGeometry(0.42, 0.28, 24, 1, true), gold); dish.rotation.x = -Math.PI / 2; dish.rotation.y = 0.35;
         dish.position.set(-hx * 0.78, 0, ho + 1.15); dish.castShadow = true; g.add(dish);
         box(0.05, 0.05, 1.0, light, -hx * 0.78, 0, ho + 0.7);
         for (const sgn of [-1, 1]) box(0.1, 0.34, 0.12, lampMat, hx + 0.02, sgn * hy * 0.65, ho + 0.1);
-        box(0.7, 0.5, 0.42, dark, hx * 0.55, 0, ho + hz * 0.35 + 0.28);   // приборная стойка
+        box(0.7, 0.5, 0.42, dark, hx * 0.55, 0, ho + hz * 0.35 + 0.28);   // instrument rack
       } else {
-        box(0.12, 0.12, 1.1, light, hx * 0.5, 0, ho + hz * 0.4 + 0.55);   // мачта
+        box(0.12, 0.12, 1.1, light, hx * 0.5, 0, ho + hz * 0.4 + 0.55);   // mast
         box(0.34, 0.5, 0.22, dark, hx * 0.5, 0, ho + hz * 0.4 + 1.15);
         const eye = new T.Mesh(new T.CylinderGeometry(0.07, 0.07, 0.1, 12), lampMat); eye.rotation.z = Math.PI / 2; eye.position.set(hx * 0.5 + 0.2, 0.12, ho + hz * 0.4 + 1.18); g.add(eye);
-        box(0.5, 0.35, 0.3, gold, -hx * 0.95, 0, ho - 0.05);                 // РИТЭГ
-        box(0.9, 0.08, 0.08, dark, hx * 0.85, 0.15, ho - 0.12);              // манипулятор
+        box(0.5, 0.35, 0.3, gold, -hx * 0.95, 0, ho - 0.05);                 // RTG
+        box(0.9, 0.08, 0.08, dark, hx * 0.85, 0.15, ho - 0.12);              // manipulator
         for (const sgn of [-1, 1]) box(0.1, 0.3, 0.1, lampMat, hx + 0.02, sgn * hy * 0.5, ho + 0.05);
       }
-      // колёса
+      // wheels
       for (let i = 0; i < cfg.mounts.length; i++) {
         const w = new T.Group(), spin = new T.Group();
         const cyl = new T.Mesh(new T.CylinderGeometry(cfg.wheelR, cfg.wheelR, cfg.wheelW, 28), tire); cyl.castShadow = true; spin.add(cyl);
@@ -309,7 +309,7 @@ class Scene3D {
         const mt = cfg.mounts[i]; w.position.set(mt[0], mt[1], mt[2] - cfg.L0);
         w.add(spin); g.add(w); out.wheelMeshes.push({ w, spin });
       }
-      // фары
+      // headlights
       if (!remote) for (const sgn of [-1, 1]) {
         const sp = new T.SpotLight(0xfff1d0, 0, 60, 0.55, 0.6, 1.2); sp.position.set(cfg.hull[0], sgn * cfg.hull[1] * 0.6, cfg.hull[3] + 0.1);
         sp.target.position.set(cfg.hull[0] + 25, sgn * 1.5, -4); g.add(sp); g.add(sp.target); out.headL.push(sp);
@@ -326,7 +326,7 @@ class Scene3D {
   _droneModel(g, cfg, out, M) {
     const { dark, light, gold, panel, rimMat, lampMat, box } = M;
     const add = (geo, mat, x, y, z) => { const m = new T.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; g.add(m); return m; };
-    // опоры (посадочные «лапы»)
+    // supports (landing "legs")
     for (const l of cfg.legs) {
       const leg = add(new T.CylinderGeometry(0.025, 0.03, 0.42, 6), dark, l[0] * 0.8, l[1] * 0.8, l[2] + 0.2);
       leg.rotation.set(l[1] > 0 ? -0.35 : 0.35, l[0] > 0 ? 0.35 : -0.35, 0);
@@ -334,7 +334,7 @@ class Scene3D {
     }
     if (cfg.kind === 'rotor') {
       add(new T.BoxGeometry(0.5, 0.5, 0.26), gold, 0, 0, 0);
-      add(new T.BoxGeometry(0.46, 0.46, 0.04), panel, 0, 0, 0.16);                                   // солнечная панель
+      add(new T.BoxGeometry(0.46, 0.46, 0.04), panel, 0, 0, 0.16);                                   // solar panel
       add(new T.CylinderGeometry(0.03, 0.03, 0.35, 6), light, 0, 0, 0.35).rotation.x = 0;
       const eye = add(new T.SphereGeometry(0.06, 10, 8), lampMat, 0.26, 0, -0.04);
       const R = cfg.rotorR, n = cfg.rotors, armR = 0.62;
@@ -347,10 +347,10 @@ class Scene3D {
         const disc = new T.Mesh(new T.CircleGeometry(R * 0.62, 24), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.07, side: T.DoubleSide, depthWrite: false }));
         rot.add(disc); g.add(rot); out.rotors.push(rot);
       }
-    } else {   // ракетный «прыгун»
+    } else {   // rocket "hopper"
       add(new T.CylinderGeometry(0.42, 0.46, 0.62, 18), light, 0, 0, 0.1).rotation.x = Math.PI / 2;
       add(new T.CylinderGeometry(0.43, 0.43, 0.06, 18), gold, 0, 0, -0.02).rotation.x = Math.PI / 2;
-      add(new T.BoxGeometry(0.7, 0.7, 0.04), panel, 0, 0, 0.44);                                       // панель сверху
+      add(new T.BoxGeometry(0.7, 0.7, 0.04), panel, 0, 0, 0.44);                                       // panel on top
       add(new T.CylinderGeometry(0.02, 0.02, 0.6, 6), light, -0.2, 0, 0.74);
       const dish = add(new T.ConeGeometry(0.22, 0.12, 16, 1, true), gold, -0.2, 0, 1.05); dish.rotation.x = -Math.PI / 2;
       add(new T.SphereGeometry(0.07, 10, 8), lampMat, 0.44, 0, 0.1);
@@ -363,7 +363,7 @@ class Scene3D {
       }
     }
   }
-  /** Космонавт в скафандре: шлем с золотым визором, ранец, руки и ноги с локтями и коленями. Лицом к +x, начало у ступней. */
+  /** Astronaut in a spacesuit: helmet with gold visor, backpack, arms and legs with elbows and knees. Faces +x, origin at the feet. */
   _walkerModel(g) {
     const suit = new T.MeshStandardMaterial({ color: 0xeceff4, roughness: 0.75, metalness: 0.05 });
     const grey = new T.MeshStandardMaterial({ color: 0x9aa3b0, roughness: 0.6, metalness: 0.3 });
@@ -372,21 +372,21 @@ class Scene3D {
     const gold = new T.MeshStandardMaterial({ color: 0xd9a93a, roughness: 0.12, metalness: 0.95 });
     const mk = (geo, mat, x, y, z, parent) => { const m = new T.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; (parent || g).add(m); return m; };
     const cyl = (r1, r2, h, mat, x, y, z, parent) => { const m = mk(new T.CylinderGeometry(r1, r2, h, 14).rotateX(Math.PI / 2), mat, x, y, z, parent); return m; };
-    const H = 0.92;                                                        // высота бёдер
-    // верхняя часть тела вращается вокруг бёдер (наклон при беге, покачивание)
+    const H = 0.92;                                                        // hip height
+    // the upper body rotates about the hips (lean when running, sway)
     const upper = new T.Group(); upper.position.z = H; g.add(upper);
-    cyl(0.23, 0.2, 0.5, suit, 0, 0, 0.3, upper);                           // грудь
-    cyl(0.2, 0.19, 0.18, grey, 0, 0, 0.02, upper);                         // пояс
-    mk(new T.BoxGeometry(0.1, 0.3, 0.22), orange, 0.2, 0, 0.36, upper);   // панель управления на груди
-    mk(new T.BoxGeometry(0.28, 0.44, 0.58), suit, -0.3, 0, 0.36, upper);    // ранец жизнеобеспечения
+    cyl(0.23, 0.2, 0.5, suit, 0, 0, 0.3, upper);                           // chest
+    cyl(0.2, 0.19, 0.18, grey, 0, 0, 0.02, upper);                         // belt
+    mk(new T.BoxGeometry(0.1, 0.3, 0.22), orange, 0.2, 0, 0.36, upper);   // chest control panel
+    mk(new T.BoxGeometry(0.28, 0.44, 0.58), suit, -0.3, 0, 0.36, upper);    // life-support backpack
     mk(new T.BoxGeometry(0.06, 0.4, 0.1), grey, -0.46, 0, 0.5, upper);
-    cyl(0.012, 0.012, 0.5, dark, -0.34, 0.14, 0.88, upper);                // антенна
-    cyl(0.11, 0.12, 0.06, grey, 0, 0, 0.58, upper);                        // шея
-    mk(new T.SphereGeometry(0.215, 22, 16), suit, 0, 0, 0.78, upper);      // шлем
+    cyl(0.012, 0.012, 0.5, dark, -0.34, 0.14, 0.88, upper);                // antenna
+    cyl(0.11, 0.12, 0.06, grey, 0, 0, 0.58, upper);                        // neck
+    mk(new T.SphereGeometry(0.215, 22, 16), suit, 0, 0, 0.78, upper);      // helmet
     const visor = mk(new T.SphereGeometry(0.175, 20, 14), gold, 0.085, 0, 0.78, upper); visor.scale.set(0.8, 1.05, 0.92);
-    cyl(0.225, 0.225, 0.04, grey, 0, 0, 0.67, upper);                      // кольцо шлема
-    mk(new T.BoxGeometry(0.05, 0.1, 0.03), dark, 0.2, 0.0, 0.93, upper);   // фонарь
-    // руки: плечо -> локоть -> перчатка
+    cyl(0.225, 0.225, 0.04, grey, 0, 0, 0.67, upper);                      // helmet ring
+    mk(new T.BoxGeometry(0.05, 0.1, 0.03), dark, 0.2, 0.0, 0.93, upper);   // lamp
+    // arms: shoulder -> elbow -> glove
     const arms = [];
     for (const sy of [1, -1]) {
       const sh = new T.Group(); sh.position.set(0, sy * 0.3, 0.5); upper.add(sh);
@@ -395,10 +395,10 @@ class Scene3D {
       const el = new T.Group(); el.position.z = -0.33; sh.add(el);
       mk(new T.SphereGeometry(0.07, 10, 8), grey, 0, 0, 0, el);
       cyl(0.065, 0.06, 0.28, suit, 0, 0, -0.15, el);
-      mk(new T.SphereGeometry(0.085, 12, 10), orange, 0, 0, -0.33, el);        // перчатка
+      mk(new T.SphereGeometry(0.085, 12, 10), orange, 0, 0, -0.33, el);        // glove
       arms.push({ p: sh, e: el, side: sy });
     }
-    // ноги: бедро -> колено -> ботинок
+    // legs: thigh -> knee -> boot
     const legs = [];
     for (const sy of [1, -1]) {
       const hip = new T.Group(); hip.position.set(0, sy * 0.115, H); g.add(hip);
@@ -406,27 +406,27 @@ class Scene3D {
       const kn = new T.Group(); kn.position.z = -0.46; hip.add(kn);
       mk(new T.SphereGeometry(0.09, 10, 8), grey, 0, 0, 0, kn);
       cyl(0.09, 0.08, 0.4, suit, 0, 0, -0.2, kn);
-      mk(new T.BoxGeometry(0.3, 0.13, 0.11), dark, 0.05, 0, -0.43, kn);        // ботинок
+      mk(new T.BoxGeometry(0.3, 0.13, 0.11), dark, 0.05, 0, -0.43, kn);        // boot
       mk(new T.BoxGeometry(0.1, 0.13, 0.04), orange, 0.13, 0, -0.37, kn);
       legs.push({ p: hip, k: kn, side: sy });
     }
     return { upper, arms, legs, phase: 0, H };
   }
-  /** Анимация космонавта. Фаза шага растёт пропорционально пройденному пути (ступня не скользит). Три режима:
-      ходьба, бег (согнутые руки, подъём колен, наклон вперёд) и прыжок: взлёт с вытянутым телом, группировка в полёте,
-      амортизация при приземлении. speed — м/с по земле, air — в полёте, vz — вертикальная скорость, low — малая гравитация. */
+  /** Astronaut animation. Step phase grows in proportion to distance covered (the foot does not slide). Three modes:
+      walking, running (bent arms, knee lift, forward lean) and a jump: take-off with a stretched body, tucking in flight,
+      shock absorption on landing. speed is m/s over the ground, air is in flight, vz is vertical speed, low is low gravity. */
   _animWalker(rig, dt, speed, air, low, vz) {
     if (!rig) return;
     vz = vz || 0;
-    // приземление: короткая «просадка» с согнутыми коленями
+    // landing: a brief "dip" with bent knees
     if (rig.wasAir && !air) rig.land = 0.28;
     rig.wasAir = air; rig.land = Math.max(0, (rig.land || 0) - dt);
     const lk = rig.land / 0.28, landDip = Math.sin(Math.min(1, lk) * Math.PI) * 0.16;
     const moving = speed > 0.12, run = Math.min(1, Math.max(0, (speed - 1.5) / 1.2));
-    const S = Math.min(1.25, 0.32 + 0.45 * speed);                                     // длина шага, м
+    const S = Math.min(1.25, 0.32 + 0.45 * speed);                                     // step length, m
     if (moving && !air) rig.phase += speed * dt * Math.PI / S * (1 + 0.25 * run);
     const ph = rig.phase, sw = Math.sin(ph), cw = Math.cos(ph), L = 0.88;
-    const A = moving ? Math.min(0.78, Math.asin(Math.min(0.95, S / (2 * L)))) : 0;       // размах бедра
+    const A = moving ? Math.min(0.78, Math.asin(Math.min(0.95, S / (2 * L)))) : 0;       // hip swing
     let bob = moving && !air ? Math.abs(cw) * (0.022 + 0.04 * run) * (low ? 2 : 1) : 0;
     let lean = Math.min(0.32, 0.04 * speed + 0.12 * run), crouch = 0;
     if (air) { bob = 0; lean = vz > 0 ? 0.04 : 0.12; }
@@ -437,14 +437,14 @@ class Scene3D {
       const side = Lg.side, s = side * sw;
       let hip, knee;
       if (air) {
-        if (vz > 0.3) { hip = side * 0.12 + 0.25; knee = 0.25; }                       // толчок: ноги вытянуты, одна чуть впереди
-        else { hip = -(0.55 + side * 0.18); knee = 0.55 + 0.25 * (side > 0 ? 1 : 0); }  // снижение: ноги вперёд, колени согнуты, готов к приземлению
+        if (vz > 0.3) { hip = side * 0.12 + 0.25; knee = 0.25; }                       // push-off: legs extended, one slightly ahead
+        else { hip = -(0.55 + side * 0.18); knee = 0.55 + 0.25 * (side > 0 ? 1 : 0); }  // descent: legs forward, knees bent, ready to land
       } else {
-        hip = -s * A;                                                                   // бедро вперёд-назад
-        const swingFwd = Math.max(0, side * cw);                                        // фаза переноса: колено сгибается
+        hip = -s * A;                                                                   // hip forward-back
+        const swingFwd = Math.max(0, side * cw);                                        // swing phase: the knee bends
         knee = moving ? 0.1 + (0.45 + 0.9 * run) * swingFwd * Math.min(1, speed / 0.8) : 0.02;
       }
-      knee += landDip * 4.5;                                                            // амортизация
+      knee += landDip * 4.5;                                                            // shock absorption
       Lg.p.rotation.y = hip - landDip * 1.2; Lg.k.rotation.y = knee;
     }
     for (const Am of rig.arms) {
@@ -452,14 +452,14 @@ class Scene3D {
       if (air) { Am.p.rotation.y = vz > 0 ? -1.15 : -0.5 - 0.25 * side; Am.e.rotation.y = -0.35; Am.p.rotation.x = side * 0.5; }
       else {
         const s = -side * sw;
-        Am.p.rotation.y = s * A * (0.8 + 0.4 * run);                                    // руки навстречу ногам
-        Am.e.rotation.y = -(0.25 + 0.55 * Math.min(1, speed / 1.2) + 0.8 * run);        // при беге локти согнуты почти под прямым углом
+        Am.p.rotation.y = s * A * (0.8 + 0.4 * run);                                    // arms counter to legs
+        Am.e.rotation.y = -(0.25 + 0.55 * Math.min(1, speed / 1.2) + 0.8 * run);        // when running the elbows are bent almost at a right angle
         Am.p.rotation.x = side * (0.06 + 0.06 * Math.min(1, speed));
       }
     }
   }
 
-  // ---------------------------------------------------------------- маяки и образцы
+  // ---------------------------------------------------------------- beacons and samples
   setMarkers(items) {
     this.markers.clear(); this.markerObjs = [];
     for (const it of items) {
@@ -480,7 +480,7 @@ class Scene3D {
       g.position.set(it.x, it.y, it.z); it.obj = g; this.markers.add(g); this.markerObjs.push(it);
     }
   }
-  setGuide(points) {   // путевые вехи вдоль маршрута (x, y, z)
+  setGuide(points) {   // waypoints along the route (x, y, z)
     if (this.guide) { this.scene.remove(this.guide); this.guide.dispose && this.guide.dispose(); }
     const n = Math.min(points.length, 400);
     const g = new T.InstancedMesh(new T.BoxGeometry(0.16, 0.16, 1.7), new T.MeshStandardMaterial({ color: 0xffb020, emissive: 0xffb020, emissiveIntensity: 0.9 }), Math.max(n, 1));
@@ -489,24 +489,24 @@ class Scene3D {
     g.count = n; g.frustumCulled = false; g.instanceMatrix.needsUpdate = true; this.guide = g; this.scene.add(g);
   }
 
-  // ---------------------------------------------------------------- кадр
+  // ---------------------------------------------------------------- frame
   /** S: rover, prev {pos,q}, alpha, env, cam {mode, yaw, pitch, dist}, lights, warp, realDt, wind, now */
   frame(S) {
     const t = this.terrain; if (!t) return;
     const r = S.rover, env = S.env, dt = S.realDt;
-    // интерполяция положения между шагами физики
-    const rq = S.walker ? { x: 0, y: 0, z: 0, w: 1 } : r.q;      // у пешехода нет кватерниона: он поворачивается только по курсу
+    // interpolate position between physics steps
+    const rq = S.walker ? { x: 0, y: 0, z: 0, w: 1 } : r.q;      // a pedestrian has no quaternion: it turns only by heading
     const a = S.alpha != null ? S.alpha : 1, pp = S.prev ? S.prev.pos : r.pos, pq = S.prev && S.prev.q ? S.prev.q : rq;
     const px = pp[0] + (r.pos[0] - pp[0]) * a, py = pp[1] + (r.pos[1] - pp[1]) * a, pz = pp[2] + (r.pos[2] - pp[2]) * a;
     let qx = pq.x + (rq.x - pq.x) * a, qy = pq.y + (rq.y - pq.y) * a, qz = pq.z + (rq.z - pq.z) * a, qw = pq.w + (rq.w - pq.w) * a;
     if (pq.x * rq.x + pq.y * rq.y + pq.z * rq.z + pq.w * rq.w < 0) { qx = rq.x; qy = rq.y; qz = rq.z; qw = rq.w; }
     const qn = 1 / Math.hypot(qx, qy, qz, qw);
-    // рельеф
+    // terrain
     for (const ring of this.rings) { const n = ring.need(px, py); if (n) ring.update(t, n[0], n[1], this.pal); }
     this._updateRocks(px, py);
-    // свет и небо
+    // light and sky
     this._lighting(env, px, py, pz, S);
-    // техника
+    // vehicles
     const vg = this.vehicleGroup;
     if (vg) {
       vg.position.set(px, py, pz); vg.quaternion.set(qx * qn, qy * qn, qz * qn, qw * qn);
@@ -525,12 +525,12 @@ class Scene3D {
     if (this.pings) for (let i = this.pings.length - 1; i >= 0; i--) { const pg = this.pings[i]; pg.g.children[1].rotation.z += dt * 1.2; if (performance.now() - pg.born > 90000) { this.scene.remove(pg.g); this.pings.splice(i, 1); } }
     this._syncRemotes(S, dt);
     this._labels(px, py, pz);
-    // маяки
+    // beacons
     if (this.markerObjs) for (const it of this.markerObjs) {
       if (it.obj.userData.spin) { it.obj.userData.spin.rotation.z += dt * 1.6; it.obj.userData.spin.position.z = 1.1 + 0.12 * Math.sin(S.now * 2 + it.x); }
       it.obj.visible = !it.done;
     }
-    // пыль из-под колёс
+    // dust from under the wheels
     const g = t.g, drag = this.mars ? 1.3 : 0.0, wk = env ? Math.min(env.wind || 0, 30) : 0, wa = S.windDir || 0;
     const wvx = Math.sin(wa) * wk * (this.mars ? 0.25 : 0), wvy = Math.cos(wa) * wk * (this.mars ? 0.25 : 0);
     if (S.spawnDust && !S.walker && dt > 0) {
@@ -549,7 +549,7 @@ class Scene3D {
       }
     }
     this.dust.update(Math.min(dt, 0.05), g, drag, wvx, wvy, t);
-    // ветровая пыль (Марс, буря)
+    // wind dust (Mars, storm)
     if (this.mars && wk > 9) {
       const cnt = Math.min(6, Math.floor((wk - 8) * 0.5) + (Math.random() < 0.5 ? 1 : 0));
       for (let i = 0; i < cnt; i++) this.wind.emit(px + (Math.random() - 0.5) * 70 - wvx * 3, py + (Math.random() - 0.5) * 70 - wvy * 3, t.grid(px, py) + Math.random() * 6, wvx * 2.2, wvy * 2.2, 0.2, 2.2);
@@ -558,7 +558,7 @@ class Scene3D {
     this._camera(S, px, py, pz, qx * qn, qy * qn, qz * qn, qw * qn);
     this.renderer.render(this.scene, this.camera);
   }
-  /** Остальные машины «парка»: ровер, космонавт, дрон, которыми игрок сейчас не управляет. S.passive: [{ kind, obj, cfg, hidden }] */
+  /** The other vehicles of the "fleet": rover, astronaut, drone that the player is not currently controlling. S.passive: [{ kind, obj, cfg, hidden }] */
   _passive(S, dt) {
     if (!this.passiveModels) this.passiveModels = new Map();
     const list = S.passive || [], want = new Set();
@@ -579,7 +579,7 @@ class Scene3D {
     for (const [k, m] of [...this.passiveModels]) if (!want.has(k)) { this.scene.remove(m.group); this.passiveModels.delete(k); }
   }
 
-  /** Метка игрока: светящийся столб на 90 секунд. */
+  /** Player marker: a glowing pillar for 90 seconds. */
   addPing(x, y, z, hue, name) {
     if (!this.pings) this.pings = [];
     const g = new T.Group(), col = new T.Color(`hsl(${hue},85%,60%)`);
@@ -591,8 +591,8 @@ class Scene3D {
   clearPings() { if (this.pings) for (const p of this.pings) this.scene.remove(p.g); this.pings = []; }
   rovWheelIndex(r, wh) { return r.wheels.indexOf(wh); }
 
-  // ---------------------------------------------------------------- подписи, чужие игроки, настоящие аппараты
-  /** Табличка с именем над техникой; hue — цвет игрока, live — значок «живые данные NASA». */
+  // ---------------------------------------------------------------- labels, other players, real vehicles
+  /** Name plate above a vehicle; hue is the player colour, live is the "live NASA data" badge. */
   makeLabel(text, hue, live, sub) {
     const cv = document.createElement('canvas'); cv.width = 384; cv.height = 96;
     const g = cv.getContext('2d'); g.font = '600 34px system-ui, sans-serif';
@@ -615,7 +615,7 @@ class Scene3D {
     if (this.remote) for (const e of this.remote.values()) { upd(e.label, e.group.position.x, e.group.position.y, e.group.position.z + 2.6); e.label.position.set(e.group.position.x, e.group.position.y, e.group.position.z + 2.6 + Math.min(4, Math.hypot(cam.x - e.group.position.x, cam.y - e.group.position.y) * 0.01)); }
     if (this.assetObjs) for (const e of this.assetObjs) { upd(e.label, e.x, e.y, e.z); e.label.position.set(e.x, e.y, e.z + 4.2); }
   }
-  /** list: [{id, name, kind, hue, x, y, z, q:{x,y,z,w}, steer, speed, thrust}] — положения чужих игроков в текущей системе координат. */
+  /** list: [{id, name, kind, hue, x, y, z, q:{x,y,z,w}, steer, speed, thrust}] - other players' positions in the current coordinate system. */
   _syncRemotes(S, dt) {
     const list = S.remotes || [], want = new Set();
     if (!this.remote) this.remote = new Map();
@@ -626,7 +626,7 @@ class Scene3D {
         if (e) { this.scene.remove(e.group); this.scene.remove(e.label); }
         const cfg = it.kind === 'drone' ? C.droneConfig(this.mars ? 'mars' : 'moon') : it.kind === 'walker' ? C.VEHICLES.walker : C.VEHICLES[it.kind] || C.VEHICLES.rover_crew;
         const m = this.makeModel(cfg, true), label = this.makeLabel(it.name, it.hue, false);
-        // цветная метка игрока: тонкий столб над техникой
+        // coloured player marker: a thin pillar above the vehicle
         const tag = new T.Mesh(new T.CylinderGeometry(0.06, 0.06, 1.6, 6).rotateX(Math.PI / 2), new T.MeshBasicMaterial({ color: new T.Color(`hsl(${it.hue},85%,60%)`), fog: false }));
         tag.position.z = (cfg.drone ? 0.9 : 2.2); m.group.add(tag);
         this.scene.add(m.group); this.scene.add(label);
@@ -642,7 +642,7 @@ class Scene3D {
     }
     for (const [id, e] of [...this.remote]) if (!want.has(id)) { this.scene.remove(e.group); this.scene.remove(e.label); this.remote.delete(id); }
   }
-  /** Настоящие аппараты (посадочные станции и марсоходы) в текущей системе координат. items: [{x, y, z, hd, kind, name, live, sub}] */
+  /** Real vehicles (landers and rovers) in the current coordinate system. items: [{x, y, z, hd, kind, name, live, sub}] */
   setAssets(items) {
     if (this.assetObjs) for (const e of this.assetObjs) { this.scene.remove(e.group); this.scene.remove(e.label); }
     this.assetObjs = [];
@@ -652,7 +652,7 @@ class Scene3D {
         const m = this.makeModel(C.VEHICLES.rover_robot, true); g.add(m.group);
         const cfg = C.VEHICLES.rover_robot; m.group.position.z = cfg.wheelR + cfg.L0 - cfg.mounts[0][2] * 0 + 0.05;
       } else this._landerModel(g);
-      // кольцо на земле, чтобы заметить издалека
+      // ring on the ground to be noticed from afar
       const ring = new T.Mesh(new T.TorusGeometry(it.live ? 7 : 5, 0.18, 8, 44), new T.MeshBasicMaterial({ color: it.live ? 0xff7a59 : 0x35e3ff, fog: false }));
       ring.position.z = 0.3; g.add(ring);
       g.position.set(it.x, it.y, it.z); g.rotation.z = Math.PI / 2 - (it.hd || 0);
@@ -673,7 +673,7 @@ class Scene3D {
     const dish = add(new T.ConeGeometry(0.3, 0.14, 16, 1, true), gold, 0.4, 0.3, 2.95); dish.rotation.x = -Math.PI / 2;
   }
 
-  // ---------------------------------------------------------------- эффекты дрона: роторы, факелы, пыль
+  // ---------------------------------------------------------------- drone effects: rotors, flames, dust
   _droneFx(S, r, px, py, pz, dt) {
     if (!S.drone || !r.cfg || !dt) return;
     const t = this.terrain, thr = clamp(r.stats.thrustPct || 0, 0, 1), ax = C.axes(r.q, {});
@@ -691,7 +691,7 @@ class Scene3D {
       }
     }
     if (this.plume) this.plume.update(Math.min(dt, 0.05), 0, 0, 0, 0, t);
-    // пыль, поднятая струёй у земли
+    // dust raised by the jet near the ground
     const agl = r.stats.agl;
     if (thr > 0.15 && agl < 12 && S.spawnDust) {
       const k = (1 - agl / 12) * thr, rate = k * 70 * dt, gz = t.grid(px, py) + 0.15;
@@ -706,38 +706,38 @@ class Scene3D {
   _lighting(env, px, py, pz, S) {
     if (!env) return;
     const sd = env.sunDir, sinEl = sd[2], mars = this.mars;
-    const dayK = C.smooth((sinEl + 0.06) / 0.2);                // 0 ночью, 1 днём
+    const dayK = C.smooth((sinEl + 0.06) / 0.2);                // 0 at night, 1 by day
     const atm = mars ? Math.exp(-Math.max(env.tau, 0.1) / Math.max(sinEl, 0.1)) * 1.7 : 1;
     this.sun.position.set(px + sd[0] * 250, py + sd[1] * 250, pz + sd[2] * 250); this.sun.target.position.set(px, py, pz);
     this.sun.intensity = (mars ? 2.5 * Math.min(atm, 1) : 3.3) * C.smooth(sinEl / 0.08);
     this.sun.color.setRGB(1, mars ? 0.88 : 0.98, mars ? 0.74 : 0.94);
     this.sun.castShadow = sinEl > 0.01;
-    // ощущение сумерек: размытие света при низком Солнце
+    // twilight feel: light blur when the Sun is low
     const nightK = 1 - dayK; this.nightK = nightK;
     const amb = mars ? (0.06 + 0.62 * dayK) * (1 + 0.45 * Math.min(env.tau, 3) / 3) : 0.045 + 0.1 * dayK + (S.earthUp ? 0.012 : 0);
     this.hemi.intensity = amb;
     this.hemi.color.setRGB(mars ? 0.95 : 0.85, mars ? 0.78 : 0.85, mars ? 0.66 : 0.95); this.hemi.groundColor.setRGB(0.55, 0.42, 0.34);
     this.renderer.toneMappingExposure = 1.0 + 1.6 * nightK;
-    // небо
+    // sky
     this.skyMat.uniforms.sunDir.value.set(sd[0], sd[1], sd[2]);
     this.skyMat.uniforms.day.value = mars ? Math.max(dayK, 0.04 * Math.exp(-Math.abs(sinEl) * 8)) : 0;
     this.skyMat.uniforms.dust.value = mars ? Math.min(1, env.tau / 3) : 0;
     this.sky.position.set(px, py, pz); this.stars.position.set(px, py, pz);
     this.stars.material.opacity = mars ? clamp(1.05 - dayK * 1.3, 0, 1) : 1;
-    // Солнце
+    // Sun
     const vis = sinEl > -0.05;
     this.sunDisc.visible = this.sunGlow.visible = vis;
     this.sunDisc.position.set(px + sd[0] * 40000, py + sd[1] * 40000, pz + sd[2] * 40000); this.sunDisc.lookAt(px, py, pz);
     this.sunGlow.position.copy(this.sunDisc.position);
     this.sunGlow.material.opacity = mars ? 0.5 * Math.min(atm, 1) + 0.15 : 0.85;
     this.sunDisc.material.color.setRGB(1, 0.97, 0.9);
-    // Земля на лунном небе
+    // Earth in the lunar sky
     if (this.earth) {
       const e = S.earthDir;
       this.earth.visible = !!e && e[2] > -0.04;
       if (e) this.earth.position.set(px + e[0] * 40000, py + e[1] * 40000, pz + e[2] * 40000);
     }
-    // туман (Марс)
+    // fog (Mars)
     if (mars) {
       const vis2 = Math.max(env.visibility, 150);
       this.scene.fog.density = 2.4 / vis2;
@@ -756,7 +756,7 @@ class Scene3D {
     const yaw = (c.mode === 2 || walker && c.free ? c.yaw : this.camYaw + c.yaw);
     const fx = Math.sin(yaw), fy = Math.cos(yaw);
     let cx, cy, cz, lx, ly, lz;
-    if (c.mode === 1) {      // из кабины
+    if (c.mode === 1) {      // from the cockpit
       const ax = C.axes({ x: qx, y: qy, z: qz, w: qw }, {});
       const hx = this.cfgV && this.cfgV.hull ? this.cfgV.hull[0] * 0.35 : 0.3, hz = this.cfgV && this.cfgV.hull ? this.cfgV.hull[3] + 0.95 : 1.7;
       cx = px + ax.fx * hx + ax.ux * hz; cy = py + ax.fy * hx + ax.uy * hz; cz = pz + ax.fz * hx + ax.uz * hz;
@@ -774,8 +774,8 @@ class Scene3D {
       this.camera.fov = 62;
     }
     if (!(c.mode === 1 || walker)) {
-      // «Пружинная штанга»: если между вездеходом и камерой оказался гребень кратера или склон, камера подтягивается ближе,
-      // чтобы рельеф не закрывал технику (иначе вездеход выглядит провалившимся под землю).
+      // "Spring boom": if a crater rim or slope gets between the rover and the camera, the camera pulls closer,
+      // so the terrain does not hide the vehicle (otherwise the rover looks sunk into the ground).
       const tx = px, ty = py, tz = pz + (walker ? 1.5 : 1.1), dx = cx - tx, dy = cy - ty, dz = cz - tz;
       let tHit = 1;
       for (let i = 1; i <= 20; i++) {
@@ -789,7 +789,7 @@ class Scene3D {
       const k = 1 - Math.exp(-(S.realDt || 0.016) * 9);
       this.camPos.x += (cx - this.camPos.x) * k; this.camPos.y += (cy - this.camPos.y) * k; this.camPos.z += (cz - this.camPos.z) * k;
     } else { this.camPos.set(cx, cy, cz); this.camInit2 = true; }
-    // тряска при ударах
+    // shaking on impacts
     this.shake = Math.max(0, this.shake - (S.realDt || 0.016) * 2.5);
     cam.position.set(this.camPos.x + (Math.random() - 0.5) * this.shake, this.camPos.y + (Math.random() - 0.5) * this.shake, this.camPos.z + (Math.random() - 0.5) * this.shake);
     cam.up.set(0, 0, 1);

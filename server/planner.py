@@ -1,11 +1,11 @@
 # Developed with assistance from Claude Code (Anthropic), an AI coding assistant. See SI_DISCLOSURE.md.
-"""План поездки по готовому маршруту: когда едем, когда отдыхаем, чего ждём.
+"""Trip plan for a finished route: when we move, when we rest, what we wait for.
 
-Маршрут проходится во времени шаг за шагом. В каждой точке проверяется:
-  * не кончилась ли смена (лимит часов движения подряд) -> отдых;
-  * светло ли (для тех, кто движется только днём) -> ждём рассвета;
-  * укладывается ли температура поверхности в допустимый диапазон -> ждём;
-  * хватает ли заряда батареи (для роверов, зарядка от Солнца) -> заряжаемся.
+The route is walked through time step by step. At every point it checks:
+  * whether the shift is over (limit of consecutive moving hours) -> rest;
+  * whether it is light (for those who move only by day) -> wait for dawn;
+  * whether the surface temperature is within the allowed range -> wait;
+  * whether the battery has enough charge (for rovers, solar charging) -> charge.
 """
 from __future__ import annotations
 
@@ -18,21 +18,21 @@ from environment import (SOLAR_FACTOR, conditions, dose_rate_msv_day, dust_tau, 
                          showers_between, storm_prob_per_sol, sun_state)
 from i18n import lang_of, tr
 
-STEP_H = 0.5          # шаг моделирования, часы
-MAX_WAIT_H = 800.0    # дольше этого в одной точке не ждём (лунная ночь ~354 ч)
+STEP_H = 0.5          # simulation step, hours
+MAX_WAIT_H = 800.0    # we never wait longer than this at one point (a lunar night is about 354 h)
 
 
 @dataclass(frozen=True)
 class Rules:
-    shift_h: float            # сколько часов можно двигаться подряд
-    rest_h: float             # сколько длится отдых
-    daylight_only: bool       # двигаться только при Солнце над горизонтом
-    t_min: float              # допустимая температура поверхности, °C
+    shift_h: float            # how many hours one can move in a row
+    rest_h: float             # how long a rest lasts
+    daylight_only: bool       # move only while the Sun is above the horizon
+    t_min: float              # allowed surface temperature, °C
     t_max: float
-    battery_kwh: float | None  # ёмкость батареи (None = не моделируется)
-    solar_kw: float           # мощность солнечных панелей при Солнце в зените
-    standby_kw: float         # расход на стоянке
-    shield: float = 1.0       # какая доля радиации доходит до экипажа
+    battery_kwh: float | None  # battery capacity (None = not modelled)
+    solar_kw: float           # solar panel power with the Sun at the zenith
+    standby_kw: float         # power use while parked
+    shield: float = 1.0       # fraction of radiation that reaches the crew
     crewed: bool = True
 
 
@@ -40,14 +40,14 @@ RULES = {
     "walker": Rules(7.0, 17.0, True, -130.0, 110.0, None, 0.0, 0.0),
     "rover_crew": Rules(10.0, 14.0, False, -180.0, 120.0, 120.0, 10.0, 0.3, shield=0.6),
     "rover_robot": Rules(5.0, 19.0, True, -100.0, 60.0, 1.5, 0.6, 0.02, crewed=False),
-    # Дрон: один вылет около 7 минут, затем зарядка/дозаправка. Вылеты только днём.
+    # Drone: one flight lasts about 7 minutes, then charging or refuelling. Flights by day only.
     "drone": Rules(0.12, 5.0, True, -90.0, 45.0, 0.9, 0.25, 0.01, crewed=False),
 }
 
 
 
 def simulate(body: str, profile: str, seg: dict, start: datetime, lang: str = "en") -> dict:
-    """seg: массивы по отрезкам маршрута: lat, lon (точки), t (с), energy (Дж), dist (м)."""
+    """seg: arrays per route segment: lat, lon (points), t (s), energy (J), dist (m)."""
     rules = RULES[profile]
     lat, lon = seg["lat"], seg["lon"]
     seg_h = seg["t"] / 3600.0
@@ -56,21 +56,21 @@ def simulate(body: str, profile: str, seg: dict, start: datetime, lang: str = "e
     jd0 = julian_date(start)
     solar = SOLAR_FACTOR[body]
 
-    clock = 0.0                 # часы от старта
-    shift = 0.0                 # часы движения с последнего отдыха
+    clock = 0.0                 # hours since the start
+    shift = 0.0                 # hours of movement since the last rest
     battery = rules.battery_kwh
     stops: list[dict] = []
     series: list[tuple] = []
     moving_h = night_h = 0.0
-    charging = False            # начав зарядку, заряжаемся до 80 %
+    charging = False            # once charging starts, we charge up to 80 %
     t_lo, t_hi = float("inf"), float("-inf")
     feasible, reason = True, ""
     elev_m = seg["elev"]
-    env = dict(ls=None, tau=0.35)      # текущие сезон и запылённость (Марс)
+    env = dict(ls=None, tau=0.35)      # current season and dust opacity (Mars)
     risk = dict(dose=0.0, no_storm=1.0, tau_sum=0.0, tau_max=0.0, hours=0.0, season_h=0.0)
 
     def expose(dt: float, la: float, h_m: float):
-        """Накопление рисков за dt часов: радиация и шанс попасть в пыльную бурю."""
+        """Accumulate risks over dt hours: radiation and the chance of meeting a dust storm."""
         risk["dose"] += dose_rate_msv_day(body, h_m) / 24.0 * dt * rules.shield
         risk["hours"] += dt
         if body == "mars":
@@ -107,12 +107,12 @@ def simulate(body: str, profile: str, seg: dict, start: datetime, lang: str = "e
                               start_h=clock, hours=dt, temp_c=round(temp)))
 
     for i in range(len(seg_h)):
-        done = 0.0                              # пройденная доля отрезка
+        done = 0.0                              # fraction of the segment already covered
         while done < 1.0 - 1e-9:
             la, lo, elev, temp, _ = state(i, done)
             km = cum_km[i] + (cum_km[i + 1] - cum_km[i]) * done
             waited = 0.0
-            while True:                         # ждём, пока нельзя двигаться
+            while True:                         # wait until moving is allowed
                 left_h = seg_h[i] * (1.0 - done)
                 piece = min(left_h, STEP_H)
                 need = seg_kwh[i] * piece / seg_h[i] if seg_h[i] > 0 else 0.0
@@ -129,7 +129,7 @@ def simulate(body: str, profile: str, seg: dict, start: datetime, lang: str = "e
                     charging = False
                     break
                 add_stop(kind, la, lo, km, dt, temp)
-                # Отдых и долгие ожидания моделируем по шагам, чтобы батарея заряжалась верно.
+                # Rests and long waits are simulated in steps so that the battery charges correctly.
                 rem = dt
                 while rem > 1e-9:
                     d = min(rem, STEP_H)
@@ -162,7 +162,7 @@ def simulate(body: str, profile: str, seg: dict, start: datetime, lang: str = "e
         if not feasible:
             break
 
-    # Итоги по видам остановок.
+    # Totals by kind of stop.
     summary: dict[str, dict] = {}
     for s in stops:
         g = summary.setdefault(s["kind"], dict(title=tr(lang, "kind." + s["kind"]), count=0, hours=0.0))
@@ -197,7 +197,7 @@ def simulate(body: str, profile: str, seg: dict, start: datetime, lang: str = "e
 
 
 def _risks(body: str, rules: Rules, risk: dict, start: datetime, end: datetime, lang: str) -> list[dict]:
-    """Оценка рисков поездки: уровень low / mid / high и пояснение."""
+    """Risk assessment of the trip: level low / mid / high and an explanation."""
     out = []
     days = risk["hours"] / 24.0
 

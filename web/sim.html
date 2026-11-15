@@ -78,7 +78,7 @@
   .live { background: #3d1f14; color: #ffa070; border-radius: 999px; padding: 0 7px; font-size: 11px; font-weight: 600; }
   #hint { position: fixed; left: 50%; bottom: 150px; transform: translateX(-50%); z-index: 4; color: #cfe; text-shadow: 0 1px 4px #000; text-align: center; pointer-events: none; }
 
-  /* ---- окна ---- */
+  /* ---- windows ---- */
   .overlay { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: rgba(4,8,18,.72); padding: 16px; overflow-y: auto; }
   .panel { width: min(880px, 100%); max-height: 92vh; overflow-y: auto; background: var(--solid); border-radius: 18px; box-shadow: var(--shadow); padding: 22px 26px; }
   .panel h1 { margin: 0 0 2px; font-size: 24px; font-weight: 500; }
@@ -108,7 +108,7 @@
     #mini { width: 150px; height: 150px; } #botR { display: none; } #topL { width: 240px; } #botL { width: 250px; }
   }
 
-  /* ---- телефон и планшет: сенсорное управление и компактный интерфейс ---- */
+  /* ---- phone and tablet: touch controls and a compact interface ---- */
   html, body { overscroll-behavior: none; touch-action: none; }
   #gl { touch-action: none; }
   #touchUI { position: fixed; inset: 0; z-index: 6; pointer-events: none; display: none; }

@@ -1,10 +1,10 @@
 # Developed with assistance from Claude Code (Anthropic), an AI coding assistant. See SI_DISCLOSURE.md.
-"""Готовит список названных мест из справочника IAU (Gazetteer of Planetary Nomenclature).
+"""Prepares the list of named places from the IAU Gazetteer of Planetary Nomenclature.
 
-Запуск:  .venv/bin/python -I server/prep_names.py
+Run:  .venv/bin/python -I server/prep_names.py
 
-Читает data/names/<тело>/*_nomenclature_center_pts.zip (точки центров объектов),
-пишет data/places/<тело>.json. Таблица .dbf разбирается вручную, без сторонних библиотек.
+Reads data/names/<body>/*_nomenclature_center_pts.zip (feature centre points),
+writes data/places/<body>.json. The .dbf table is parsed by hand, without third-party libraries.
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ SOURCES = {
     "moon": "names/moon/MOON_nomenclature_center_pts.zip",
 }
 
-# Код типа объекта IAU -> наша группа (для значка и фильтра).
+# IAU feature type code -> our group (for the icon and the filter).
 GROUPS = {
     "AA": "crater", "CA": "crater", "PE": "crater",
     "MO": "mountain", "TH": "mountain", "DO": "mountain", "CO": "mountain", "RU": "mountain",
@@ -40,7 +40,7 @@ def read_dbf(raw: bytes):
         o += 32
     for k in range(n):
         rec = raw[header_len + k * rec_len: header_len + (k + 1) * rec_len]
-        if rec[:1] == b"*":          # удалённая запись
+        if rec[:1] == b"*":          # deleted record
             continue
         row, o = {}, 1
         for name, ln in fields:
@@ -55,9 +55,9 @@ def build(body: str) -> None:
     out, skipped = [], 0
     for r in read_dbf(z.read(dbf)):
         code = r["code"]
-        # Луна: «спутниковые» кратеры (Copernicus A, B, ...) не берём, их около 7000.
-        # Не берём также Statio (места посадок, они есть в отдельном списке миссий)
-        # и Albedo Feature (старые телескопные названия светлых и тёмных пятен).
+        # Moon: "satellite" craters (Copernicus A, B, ...) are skipped, there are about 7000 of them.
+        # Statio (landing sites, they are in a separate mission list) is skipped as well,
+        # and so is Albedo Feature (old telescope names of light and dark patches).
         if code in ("SF", "AL") or r["type"].startswith("Statio") or r["approval"] != "Adopted by IAU":
             skipped += 1
             continue
@@ -66,7 +66,7 @@ def build(body: str) -> None:
         except ValueError:
             skipped += 1
             continue
-        if code == "ME" and body == "moon":      # Mare на Луне это равнина («море»)
+        if code == "ME" and body == "moon":      # Mare on the Moon is a plain (a "sea")
             group = "plain"
         else:
             group = GROUPS.get(code, "other")
@@ -82,7 +82,7 @@ def build(body: str) -> None:
     groups: dict[str, int] = {}
     for p in out:
         groups[p["g"]] = groups.get(p["g"], 0) + 1
-    print(f"{body}: {len(out)} мест (пропущено {skipped}), по группам: {groups}")
+    print(f"{body}: {len(out)} places (skipped {skipped}), by group: {groups}")
 
 
 if __name__ == "__main__":

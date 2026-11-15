@@ -1,15 +1,15 @@
 # Developed with assistance from Claude Code (Anthropic), an AI coding assistant. See SI_DISCLOSURE.md.
-"""Настоящие аппараты на Луне и Марсе.
+"""Real vehicles on the Moon and Mars.
 
-Живые данные: положение марсоходов Perseverance и Curiosity берётся прямо с серверов NASA
-(MMGIS, mars.nasa.gov): после каждой поездки команда публикует точку «конец заезда» с номером сола,
-широтой, долготой, высотой, углами крена/тангажа и пройденным путём. Данные кэшируются на 10 минут;
-если NASA недоступна, отдаётся последнее полученное значение (поле `stale`).
+Live data: the positions of the Perseverance and Curiosity rovers are taken straight from NASA servers
+(MMGIS, mars.nasa.gov): after each drive the team publishes an "end of drive" point with the sol number,
+latitude, longitude, elevation, roll/pitch angles and distance driven. Data are cached for 10 minutes;
+if NASA is unreachable, the last received value is returned (field `stale`).
 
-Остальные аппараты (посадочные станции и неподвижные марсоходы) берутся из каталога sites.py: это
-последняя известная позиция, а не поток данных в реальном времени, и в ответе они помечены `live: false`.
-Открытых источников с координатами действующих лунных аппаратов или вертолёта Ingenuity найти не удалось,
-поэтому выдуманных координат здесь нет.
+The other vehicles (landers and stationary rovers) come from the catalogue sites.py: this is the
+last known position, not a real-time data stream, and the response marks them `live: false`.
+We could not find open sources with coordinates of operating lunar vehicles or of the Ingenuity helicopter,
+so there are no invented coordinates here.
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from sites import sites as catalog_sites
 
 TTL = 600.0
 MMGIS = "https://mars.nasa.gov/mmgis-maps/{m}/Layers/json/{m}_waypoints{suffix}.json"
-SOL_S = 88775.244                                   # длительность марсианских суток, с
+SOL_S = 88775.244                                   # length of a Martian day, s
 MISSIONS = {
     "perseverance": dict(m="M20", en="Perseverance", ru="Персеверанс", agency="NASA", kind="rover",
                          epoch=datetime(2021, 2, 18, 20, 55, tzinfo=timezone.utc), year=2021),
@@ -41,7 +41,7 @@ def _get_json(url: str, timeout: float = 12.0):
 
 
 def _fetch(key: str, suffix: str):
-    """Скачивает файл с кэшем; при ошибке возвращает прежнее значение (stale=True)."""
+    """Downloads a file with a cache; on error returns the previous value (stale=True)."""
     mi = MISSIONS[key]
     ck = (key, suffix)
     with _lock:
@@ -88,7 +88,7 @@ def _trace(key: str) -> list:
 
 
 def assets(body: str, trace: bool = False) -> list[dict]:
-    """Список аппаратов на теле: сначала живые, затем неподвижные из каталога."""
+    """List of vehicles on a body: live ones first, then the stationary ones from the catalogue."""
     out: list[dict] = []
     live_pos = []
     if body == "mars":
@@ -100,7 +100,7 @@ def assets(body: str, trace: bool = False) -> list[dict]:
                 out.append(a)
                 live_pos.append((a["lat"], a["lon"]))
     for s in catalog_sites(body):
-        # Курьёзити и Персеверанс уже есть в живых данных: каталожную посадку не дублируем рядом с ними.
+        # Curiosity and Perseverance are already in the live data: do not duplicate the catalogue landing next to them.
         if body == "mars" and s["en"].startswith(("Curiosity", "Perseverance")) and live_pos:
             continue
         out.append(dict(id="site:" + s["en"], en=s["en"], ru=s["ru"], agency=s["agency"], kind=s["kind"], year=s["year"],

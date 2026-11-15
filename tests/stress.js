@@ -1,6 +1,6 @@
 // Developed with assistance from Claude Code (Anthropic), an AI coding assistant. See SI_DISCLOSURE.md.
-// Нагрузочный тест: случайные заезды по настоящему рельефу (патчи берутся с работающего сервера).
-// Ищем провалы под грунт: node tests/stress.js [число заездов] [dt]
+// Stress test: random drives over real terrain (patches are taken from the running server).
+// Looking for falls through the ground: node tests/stress.js [number of drives] [dt]
 const C = require('../web/sim/core.js');
 const N = +process.argv[2] || 30, DT = +process.argv[3] || 0.01;
 const SPOTS = [['moon', -5.0, 20.0], ['moon', 20.19, 30.77], ['moon', -80.1, 1.4], ['moon', 12.0, -40.0], ['mars', -4.59, 137.44], ['mars', 18.4, 77.4], ['mars', -14.5, 175.4], ['mars', 40.0, -110.0]];
@@ -30,7 +30,7 @@ const env = { sunDir: [0.5, 0.2, 0.8], sunEl: 50, tau: 0.4, storm: 0, wind: 3, r
       Object.assign(r.input, { throttle: thr, steer, brake: 0 });
       r.step(DT, env);
       if (!Number.isFinite(r.pos[0] + r.pos[1] + r.pos[2] + r.q.w)) { stats.nan++; firstBad = firstBad || ['NaN', tt]; break; }
-      // проверка: центр, колёса и точки корпуса не должны уходить под грунт
+      // check: the centre, wheels and hull points must not go below the ground
       const a = C.axes(r.q, {});
       const gcom = t.height(r.pos[0], r.pos[1]);
       stats.maxDepthCom = Math.max(stats.maxDepthCom, gcom - r.pos[2]);
