@@ -18,6 +18,10 @@ Far from Earth is an interactive, open tool that searches the whole Earth for pl
 
 (7 slides including the title slide; English; no login needed; shows team name, member names and the challenge.)
 
+## Team video
+
+https://www.youtube.com/watch?v=MFhG7M7suS8 (goes at the end of the Detailed Project Description; not the 30-second demo field).
+
 ## Link to Final Project
 
 **[Public link to the live tool, for example https://merdanov11.github.io/analog-atlas/atlas/ , and to the repository https://github.com/merdanov11/analog-atlas — test both in a private browser window]**
