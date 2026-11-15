@@ -6,7 +6,7 @@ Team Infinity · NASA Space Apps Challenge 2026 · Challenge: **Identify Earth L
 
 ![Far from Earth: similarity map for Shackleton crater](docs/demo/img/atlas_shackleton.jpg)
 
-**Live tool:** https://merdanov11.github.io/analog-atlas/atlas/ · **7-slide demo:** [docs/demo/AnalogAtlas_Demo.pdf](docs/demo/AnalogAtlas_Demo.pdf)
+**Live map, simulator and Earth-analog finder:** https://cleverinfinity.com/ · **Earth-analog finder (static copy):** https://merdanov11.github.io/analog-atlas/atlas/ · **7-slide demo:** [docs/demo/AnalogAtlas_Demo.pdf](docs/demo/AnalogAtlas_Demo.pdf)
 
 ## What it does
 
